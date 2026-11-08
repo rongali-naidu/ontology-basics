@@ -1,6 +1,6 @@
 // Engine: in-browser triple store (Oxigraph/WASM), rule-based reasoning, SHACL validation.
 import initOxigraph, * as ox from 'oxigraph/web.js'
-import { Parser } from 'n3'
+import { Parser, Writer, DataFactory as N3 } from 'n3'
 import rdfDataModel from '@rdfjs/data-model'
 import rdfDataset from '@rdfjs/dataset'
 import Validator from 'shacl-engine/Validator.js'
@@ -74,16 +74,87 @@ function rulesFor (level) {
 }
 
 function quadKey (q) {
-  return `${q.subject.toString()} ${q.predicate.toString()} ${q.object.toString()}`
+  return `${q.subject.toString()} ${q.predicate.toString()} ${q.object.toString()} ${q.graph.toString()}`
+}
+
+// RDF serialisation formats the playground can read and write.
+export const FORMATS = {
+  turtle:   { label: 'Turtle',    mime: 'text/turtle',           n3: 'Turtle',    quads: false, lang: 'turtle' },
+  trig:     { label: 'TriG',      mime: 'application/trig',      n3: 'TriG',      quads: true,  lang: 'turtle' },
+  ntriples: { label: 'N-Triples', mime: 'application/n-triples', n3: 'N-Triples', quads: false, lang: 'turtle' },
+  nquads:   { label: 'N-Quads',   mime: 'application/n-quads',   n3: 'N-Quads',   quads: true,  lang: 'turtle' },
+  jsonld:   { label: 'JSON-LD',   mime: 'application/ld+json',   n3: null,        quads: true,  lang: 'json' },
+  rdfxml:   { label: 'RDF/XML',   mime: 'application/rdf+xml',   n3: null,        quads: false, lang: 'xml' }
+}
+
+const BASE = 'http://example.org/'
+const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+
+function loadInto (store, text, format) {
+  store.load(text, { format: (FORMATS[format] || FORMATS.turtle).mime, base_iri: BASE })
+}
+
+function toN3 (t) {
+  switch (t.termType) {
+    case 'NamedNode': return N3.namedNode(t.value)
+    case 'BlankNode': return N3.blankNode(t.value)
+    case 'Literal': return t.language ? N3.literal(t.value, t.language) : N3.literal(t.value, N3.namedNode(t.datatype.value))
+    default: return N3.defaultGraph()
+  }
+}
+
+/** Serialise quads (Oxigraph terms) to a format. Triple-only formats get the default graph only. */
+export function serialize (quads, format, prefixes = {}) {
+  const f = FORMATS[format] || FORMATS.turtle
+  const named = quads.filter(q => q.graph.termType !== 'DefaultGraph')
+  const key = q => `${q.graph.value}\u0000${q.subject.value}\u0000${q.predicate.value === RDF_TYPE ? '' : q.predicate.value}\u0000${q.object.value}`
+  const usable = (f.quads ? quads : quads.filter(q => q.graph.termType === 'DefaultGraph'))
+    .slice().sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)   // group by graph and subject, rdf:type first
+  const note = !f.quads && named.length ? `${named.length} triple(s) in named graphs left out: ${f.label} has no named graphs` : ''
+  let text
+  if (f.n3) {
+    const usedPrefixes = {}
+    const all = usable.map(q => [q.subject, q.predicate, q.object, q.graph].map(t => t.value).join(' ') + ' ' + (q.object.datatype?.value || '')).join(' ')
+    if (f.n3 === 'Turtle' || f.n3 === 'TriG') for (const [p, ns] of Object.entries(prefixes)) if (all.includes(ns)) usedPrefixes[p] = ns
+    const w = new Writer({ format: f.n3, prefixes: usedPrefixes })
+    for (const q of usable) w.addQuad(toN3(q.subject), toN3(q.predicate), toN3(q.object), toN3(q.graph))
+    w.end((err, out) => { if (err) throw err; text = out })
+  } else {
+    const st = new ox.Store(usable)
+    text = st.dump(f.quads ? { format: f.mime } : { format: f.mime, from_graph_name: ox.defaultGraph() })
+    if (format === 'jsonld') { try { text = JSON.stringify(JSON.parse(text), null, 2) } catch {} }
+  }
+  return { text, note }
+}
+
+export function parseQuads (text, format) {
+  const st = new ox.Store()
+  loadInto(st, text, format)
+  return st.match()
+}
+
+/** Run a SPARQL Update against the data (no reasoning). Returns the quads before and after. */
+export function applyUpdate (text, format, update) {
+  const st = new ox.Store()
+  loadInto(st, text, format)
+  const before = st.match()
+  st.update(update, { base_iri: BASE })
+  return { before, after: st.match() }
+}
+
+export function diffQuads (before, after) {
+  const b = new Set(before.map(quadKey))
+  const a = new Set(after.map(quadKey))
+  return { added: after.filter(q => !b.has(quadKey(q))), removed: before.filter(q => !a.has(quadKey(q))) }
 }
 
 /**
  * Build a store from Turtle and optionally apply reasoning.
  * Returns { store, asserted, inferred: Quad[], clashes: [{x,msg}] }
  */
-export function buildStore (turtle, reasoning = 'none') {
+export function buildStore (text, reasoning = 'none', format = 'turtle') {
   const store = new ox.Store()
-  store.load(turtle, { format: 'text/turtle', base_iri: 'http://example.org/' })
+  loadInto(store, text, format)
   const asserted = new Set(store.match().map(quadKey))
   const rules = rulesFor(reasoning)
   let iterations = 0
@@ -106,14 +177,16 @@ export function buildStore (turtle, reasoning = 'none') {
 }
 
 export function runQuery (store, sparql, format) {
-  const opts = { base_iri: 'http://example.org/' }
+  const opts = { base_iri: BASE }
   if (format) opts.results_format = format
   return store.query(sparql, opts)
 }
 
+export { BASE }
+
 function parseToDataset (turtle) {
   const ds = rdfDataset.dataset()
-  const quads = new Parser({ baseIRI: 'http://example.org/' }).parse(turtle)
+  const quads = new Parser({ baseIRI: BASE }).parse(turtle)
   for (const q of quads) {
     ds.add(rdfDataModel.quad(
       convert(q.subject), convert(q.predicate), convert(q.object)
@@ -132,9 +205,10 @@ function convert (t) {
 }
 
 /** Validate data (Turtle, plus optional extra quads from reasoning) against shapes (Turtle). */
-export async function validateShacl (dataTurtle, shapesTurtle, extraQuads = []) {
-  const data = parseToDataset(dataTurtle)
-  for (const q of extraQuads) data.add(rdfDataModel.quad(convert(q.subject), convert(q.predicate), convert(q.object)))
+/** Validate data quads (Oxigraph terms, inferred ones included) against shapes written in Turtle. */
+export async function validateShacl (quads, shapesTurtle) {
+  const data = rdfDataset.dataset()
+  for (const q of quads) data.add(rdfDataModel.quad(convert(q.subject), convert(q.predicate), convert(q.object)))
   const shapes = parseToDataset(shapesTurtle)
   // SHACL resolves sh:class / sh:targetClass through rdfs:subClassOf in the *data* graph,
   // but shacl-engine looks in the shapes graph. Copy the hierarchy across so both agree.

@@ -51,6 +51,17 @@
             <button class="tab" data-tab="shapes" role="tab" id="shapesTab" hidden>Shapes</button>
           </div>
           <div class="spacer"></div>
+          <label class="reasoning" title="Serialisation format of the data. Changing it converts the data.">
+            Format
+            <select id="format">
+              <option value="turtle">Turtle</option>
+              <option value="trig">TriG</option>
+              <option value="ntriples">N-Triples</option>
+              <option value="nquads">N-Quads</option>
+              <option value="jsonld">JSON-LD</option>
+              <option value="rdfxml">RDF/XML</option>
+            </select>
+          </label>
           <label class="reasoning" title="Apply inference rules to the data before querying">
             Reasoning
             <select id="reasoning">

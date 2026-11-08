@@ -1,99 +1,94 @@
 ---
-title: Capstone, and what's next
-section: Wrap-up
-reasoning: owl
-check_reasoning: owl
-tab: data
-start: query
+title: Prefixes and IRIs in queries
+section: SPARQL basics
 ---
 
-# Putting it all together
+# Prefixes and IRIs in queries
 
-The data on the right is the whole store again, now with the key parts of the **retail ontology** at the bottom. It uses **everything** from this course:
+Every name in a SPARQL query is an **IRI**. Prefixes are just a shorthand for writing them. Most "my query returns nothing" problems come from getting an IRI slightly wrong, so this page is worth knowing well.
 
-- **RDFS:** class hierarchies, plus domains and ranges
-- **OWL:** the inverse `placedBy`/`placedOrder`, the transitive `subCategoryOf`, the `purchased` property chain, `AllDisjointClasses`, and the defined classes `DeliveredOrder`, `NonRevenueOrder` and `LaptopBuyer`
-- **SKOS:** the merchandise hierarchy is a specialisation of `skos:broader`
-- **SHACL:** the retail shapes for customers and products (Shapes tab)
+## 1. A query declares its own prefixes
 
-Reasoning is on (**RDFS + OWL RL**). Explore with the queries below.
-
-Who bought a laptop? Nobody is *tagged* as a laptop buyer:
+The `@prefix` lines in your data **do not** carry over into queries. The query on the right uses `retail:`, `ex:` and `xsd:` without declaring them, so it fails. Look at the error in the results panel: the playground spots the missing prefixes and offers **Add them and run**. Try it.
 
 ```sparql
 PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?c ?name WHERE { ?c a retail:LaptopBuyer ; retail:name ?name }
+SELECT ?order ?date
+WHERE {
+  ?order retail:placedBy ex:C1 ;
+         retail:orderDate ?date .
+}
 ```
 
-Which orders don't count as revenue, and why?
+Notice **`xsd:`** in the exercise below. You need it even though no data property is called `xsd:…`, because typed values like dates are written `"2026-09-15"^^xsd:date`.
+
+## 2. You can skip prefixes and write full IRIs
 
 ```sparql
-PREFIX retail: <https://example.org/retail/ontology#>
-
-SELECT ?order ?status WHERE { ?order a retail:NonRevenueOrder ; retail:status ?status }
+SELECT ?name
+WHERE {
+  ?p a <https://example.org/retail/ontology#Product> ;
+     <https://example.org/retail/ontology#name> ?name .
+}
 ```
 
-What did each customer purchase? This uses the property chain:
+It's longer, but it always works. That's handy when copying a single IRI from somewhere.
+
+## 3. The prefix *name* doesn't matter, the IRI does
+
+A prefix is a local nickname. This query calls the ontology `r:` and the data `d:`, and still matches data written with `retail:` and `ex:`:
 
 ```sparql
-PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX r: <https://example.org/retail/ontology#>
+PREFIX d: <https://example.org/retail/data/>
 
-SELECT ?name (GROUP_CONCAT(?product; separator=", ") AS ?purchased)
-WHERE { ?c retail:purchased/retail:name ?product ; retail:name ?name }
-GROUP BY ?name
+SELECT ?product WHERE { ?line r:forProduct ?product . ?order r:hasLine ?line ; r:placedBy d:C1 }
 ```
 
-To check the data quality, switch Reasoning to **RDFS** (as the retail example does) and press **Validate ✓**.
+There's also the **empty prefix**, `PREFIX : <…>`, which lets you write `:Product`. And `a` never needs a prefix: it's built-in shorthand for `rdf:type`.
 
-## Final exercise
+## 4. ⚠ A nearly-right IRI fails silently
 
-Compute **revenue per product family** (Electronics, Home & Garden, Media). Return the family's `retail:name` as `?family` and the revenue.
+This returns **zero rows, and no error**:
 
-- Revenue is quantity × price paid on order lines.
-- Leave out orders that are **`retail:NonRevenueOrder`**. Use the defined class instead of listing statuses!
-- Walk from the product's sub-category up to its family.
+```sparql
+PREFIX retail: <http://example.org/retail/ontology#>
 
-The three numbers should add up to the store's total revenue, **1878.43**.
-
-## Where to go next
-
-- **The full retail example:** [semantics-ontology-graphs/examples/retail](https://github.com/rongali-naidu/semantics-ontology-graphs/tree/main/examples/retail). It has the complete ontology, taxonomies, glossary and shapes from this course, plus the SQL warehouse, R2RML mapping, a semantic model and a context graph that links business words to columns and lineage.
-- **Protégé** (protege.stanford.edu): the classic free editor for OWL ontologies, with full DL reasoners.
-- **W3C specs:** [RDF 1.1 Primer](https://www.w3.org/TR/rdf11-primer/), [SPARQL 1.1 Query](https://www.w3.org/TR/sparql11-query/), [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/), [SKOS Primer](https://www.w3.org/TR/skos-primer/), [SHACL](https://www.w3.org/TR/shacl/).
-- **Real data to query:** the [Wikidata Query Service](https://query.wikidata.org/) is the largest public SPARQL endpoint.
-- **Triple stores:** Oxigraph (which powers this site), Apache Jena Fuseki, GraphDB, Stardog, Amazon Neptune.
-- **Vocabularies to reuse:** schema.org (which the retail ontology aligns to), Dublin Core, FOAF, PROV-O. Reuse before you invent!
-
-Thanks for learning. Now model something you care about. 🎓
-
-```turtle shapes
-@prefix sh:     <http://www.w3.org/ns/shacl#> .
-@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
-@prefix retail: <https://example.org/retail/ontology#> .
-@prefix shape:  <https://example.org/retail/shapes#> .
-
-shape:CustomerShape a sh:NodeShape ;
-    sh:targetClass retail:Customer ;          # also hits PremiumCustomer
-    sh:property [ sh:path retail:name ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path retail:email ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" ;
-                  sh:message "Customer needs exactly one well-formed email." ] ;
-    sh:property [ sh:path retail:hasAddress ; sh:class retail:Address ; sh:minCount 1 ] .
-
-shape:PremiumCustomerShape a sh:NodeShape ;
-    sh:targetClass retail:PremiumCustomer ;
-    sh:property [ sh:path retail:memberSince ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
-
-shape:ProductShape a sh:NodeShape ;
-    sh:targetClass retail:Product ;
-    sh:property [ sh:path retail:name ; sh:datatype xsd:string ; sh:minCount 1 ] ;
-    sh:property [ sh:path retail:sku  ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path retail:price ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ; sh:minExclusive 0 ] ;
-    sh:property [ sh:path retail:brand ; sh:class retail:Brand ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path retail:inCategory ; sh:class retail:SubCategory ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:message "A product is assigned to exactly one sub-category (the lowest level)." ] .
+SELECT ?p WHERE { ?p a retail:Product }
 ```
+
+Can you spot why? It's `http` instead of `https`. Other classic mismatches are `#` vs `/` at the end, a missing trailing `/`, and capitalisation (`Product` vs `product`). To the database these are completely different names.
+
+**When a query returns nothing, look at the real IRIs first:**
+
+```sparql
+SELECT DISTINCT ?type WHERE { ?s a ?type }
+```
+
+The playground also points out names in your query that don't occur anywhere in the data.
+
+## Prefixes you'll see everywhere
+
+| Prefix | IRI | Vocabulary |
+|---|---|---|
+| `rdf:` | `http://www.w3.org/1999/02/22-rdf-syntax-ns#` | RDF core (`rdf:type`) |
+| `rdfs:` | `http://www.w3.org/2000/01/rdf-schema#` | RDF Schema |
+| `owl:` | `http://www.w3.org/2002/07/owl#` | OWL |
+| `xsd:` | `http://www.w3.org/2001/XMLSchema#` | datatypes |
+| `skos:` | `http://www.w3.org/2004/02/skos/core#` | SKOS |
+| `sh:` | `http://www.w3.org/ns/shacl#` | SHACL |
+| `schema:` | `https://schema.org/` | schema.org (note: `https`) |
+| `dcterms:` | `http://purl.org/dc/terms/` | Dublin Core metadata |
+| `prov:` | `http://www.w3.org/ns/prov#` | provenance |
+
+Look up any prefix at [prefix.cc](https://prefix.cc).
+
+## Exercise
+
+Fix the query on the right so it runs: it needs **three** prefixes. It should return the orders placed by `ex:C1` **on or after 15 September 2026**. You should get one order, `ex:ORD-0003`.
 
 ```turtle data
 @prefix retail: <https://example.org/retail/ontology#> .
@@ -168,62 +163,26 @@ ex:R1 a retail:Review ; retail:writtenBy ex:C1 ; retail:reviewOf ex:PRD-0001 ; r
 ex:R2 a retail:Review ; retail:writtenBy ex:C2 ; retail:reviewOf ex:PRD-0004 ; retail:rating 4 ; retail:reviewText "Great intro to graphs." .
 ex:R3 a retail:Review ; retail:writtenBy ex:C1 ; retail:reviewOf ex:PRD-0002 ; retail:rating 3 ; retail:reviewText "Good sound, weak battery." .
 ex:R4 a retail:Review ; retail:writtenBy ex:C3 ; retail:reviewOf ex:PRD-0004 ; retail:rating 5 ; retail:reviewText "Clear and practical." .
-
-# =====================================================================
-# Key parts of the retail ontology (retail-ontology.ttl, retail-defined-classes.ttl)
-# =====================================================================
-@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix owl:    <http://www.w3.org/2002/07/owl#> .
-@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
-@prefix schema: <https://schema.org/> .
-
-retail:Customer        rdfs:subClassOf retail:Party , schema:Person .
-retail:PremiumCustomer rdfs:subClassOf retail:Customer .
-retail:Product         owl:equivalentClass schema:Product .
-retail:Category        rdfs:subClassOf skos:Concept .
-retail:ProductFamily   rdfs:subClassOf retail:Category .
-retail:ProductCategory rdfs:subClassOf retail:Category .
-retail:SubCategory     rdfs:subClassOf retail:Category .
-[] a owl:AllDisjointClasses ;
-   owl:members ( retail:Party retail:Brand retail:Channel retail:Product retail:Category
-                 retail:Order retail:OrderLine retail:Address retail:State retail:Country retail:Review ) .
-
-retail:placedBy   a owl:ObjectProperty , owl:FunctionalProperty ;
-                  rdfs:domain retail:Order ; rdfs:range retail:Customer ; owl:inverseOf retail:placedOrder .
-retail:hasLine    a owl:ObjectProperty , owl:InverseFunctionalProperty ; rdfs:domain retail:Order ; rdfs:range retail:OrderLine .
-retail:forProduct a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain retail:OrderLine ; rdfs:range retail:Product .
-retail:inCategory a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain retail:Product ; rdfs:range retail:SubCategory .
-retail:subCategoryOf a owl:ObjectProperty , owl:TransitiveProperty ; rdfs:subPropertyOf skos:broader .
-retail:purchased  a owl:ObjectProperty ; rdfs:domain retail:Customer ; rdfs:range retail:Product ;
-                  owl:propertyChainAxiom ( retail:placedOrder retail:hasLine retail:forProduct ) .
-
-retail:DeliveredOrder owl:equivalentClass [ owl:intersectionOf ( retail:Order
-    [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "DELIVERED" ] ) ] .
-retail:NonRevenueOrder owl:equivalentClass [ owl:intersectionOf ( retail:Order
-    [ owl:unionOf ( [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "CANCELLED" ]
-                    [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "RETURNED" ] ) ] ) ] .
-retail:LaptopBuyer owl:equivalentClass [ owl:intersectionOf ( retail:Customer
-    [ a owl:Restriction ; owl:onProperty retail:purchased ;
-      owl:someValuesFrom [ a owl:Restriction ; owl:onProperty retail:inCategory ; owl:hasValue ex:SUB-LAPTOP ] ] ) ] .
 ```
 
 ```sparql query
-PREFIX retail: <https://example.org/retail/ontology#>
-
-SELECT ?c ?name WHERE { ?c a retail:LaptopBuyer ; retail:name ?name }
+SELECT ?order ?date
+WHERE {
+  ?order retail:placedBy ex:C1 ;
+         retail:orderDate ?date .
+  FILTER(?date >= "2026-09-15"^^xsd:date)
+}
 ```
 
 ```sparql solution
 PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?family (SUM(?qty * ?price) AS ?revenue)
+SELECT ?order ?date
 WHERE {
-  ?order a retail:Order ; retail:hasLine ?line .
-  FILTER NOT EXISTS { ?order a retail:NonRevenueOrder }
-  ?line retail:quantity ?qty ; retail:unitPrice ?price ;
-        retail:forProduct/retail:inCategory/retail:subCategoryOf* ?f .
-  ?f a retail:ProductFamily ; retail:name ?family .
+  ?order retail:placedBy ex:C1 ;
+         retail:orderDate ?date .
+  FILTER(?date >= "2026-09-15"^^xsd:date)
 }
-GROUP BY ?family
 ```

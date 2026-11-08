@@ -66,6 +66,75 @@ WHERE {
 }
 ```
 
+## More filter patterns
+
+**Compare two variables.** Lines where the customer paid less than the list price:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?line ?paid ?list
+WHERE {
+  ?line retail:unitPrice ?paid ; retail:forProduct/retail:price ?list .
+  FILTER(?paid < ?list)
+}
+```
+
+**Text matching.** Names starting with "USB", or containing "book" in any case:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?name
+WHERE {
+  ?p a retail:Product ; retail:name ?name .
+  FILTER(STRSTARTS(?name, "USB") || REGEX(?name, "book", "i"))
+}
+```
+
+**Dates.** Orders placed in October, using date functions:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?order ?date
+WHERE { ?order retail:orderDate ?date . FILTER(MONTH(?date) = 10 && YEAR(?date) = 2026) }
+```
+
+**Filter by kind of value.** `isIRI`, `isLiteral`, `isBlank` and `DATATYPE()` let you split a property's values. Here are all the *literal* facts about one product, with their datatypes:
+
+```sparql
+PREFIX ex: <https://example.org/retail/data/>
+
+SELECT ?p ?o (DATATYPE(?o) AS ?type)
+WHERE { ex:PRD-0001 ?p ?o . FILTER(isLiteral(?o)) }
+```
+
+**`MINUS` vs `FILTER NOT EXISTS`.** Both remove rows, and they usually give the same answer. Products nobody has reviewed yet:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?name
+WHERE {
+  ?p a retail:Product ; retail:name ?name .
+  MINUS { ?r retail:reviewOf ?p }
+}
+```
+
+(They differ only when the two parts share no variables. Then `MINUS` removes nothing, while `NOT EXISTS` behaves as you'd expect. When in doubt, use `FILTER NOT EXISTS`.)
+
+**Fill gaps with `COALESCE`.** Show "not delivered" instead of an empty cell:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?order (COALESCE(STR(?d), "not delivered") AS ?delivered)
+WHERE { ?order a retail:Order . OPTIONAL { ?order retail:deliveryDate ?d } }
+```
+
+**Where to put a FILTER:** inside `OPTIONAL { … }` it only limits what the optional part may match; outside, it removes whole rows. And a `FILTER` on a variable that is **unbound** is an error, which drops the row (use `BOUND()` or `COALESCE()`).
+
 ## Exercise
 
 List the **order, status and delivery date** of every order that is **not `"CANCELLED"`**. Include orders that have **no delivery date** yet. Return `?order ?status ?delivered`.

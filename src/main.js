@@ -1,6 +1,6 @@
 import './style.css'
 import { marked } from 'marked'
-import { initEngine, buildStore, runQuery, validateShacl, RULES } from './engine.js'
+import { initEngine, buildStore, runQuery, validateShacl, RULES, FORMATS, serialize, applyUpdate, diffQuads } from './engine.js'
 import { createEditor } from './editor.js'
 import { lessons } from './lessons.js'
 
@@ -116,7 +116,7 @@ function showTab (name) {
 
 // ---------- lesson navigation ----------
 let current = null
-const DONE_KEY = 'ob:done:retail'   // new key: the course switched to the retail example
+const DONE_KEY = 'ob:done:v4'   // bumped when lessons are renumbered, so old ✓ marks don't land on new lessons
 const doneSet = new Set(store.get(DONE_KEY, []))
 
 function buildToc () {
@@ -156,7 +156,7 @@ function hash (str) {
 function draftKey (l) { return `ob:lesson:${l.id}:${hash(l.data + '\u0000' + l.query + '\u0000' + (l.shapes || ''))}` }
 function saveDraft () {
   if (!current) return
-  store.set(draftKey(current), { data: dataEd.value, shapes: shapesEd.value, query: queryEd.value })
+  store.set(draftKey(current), { data: dataEd.value, shapes: shapesEd.value, query: queryEd.value, format: currentFormat() })
 }
 
 function loadLesson (id) {
@@ -173,6 +173,7 @@ function loadLesson (id) {
   dataEd.value = draft?.data ?? l.data
   shapesEd.value = draft?.shapes ?? (l.shapes || '')
   queryEd.value = draft?.query ?? l.query
+  setFormat(draft?.format ?? l.format)
 
   const hasShapes = l.shapes !== null
   $('shapesTab').hidden = !hasShapes
@@ -200,7 +201,7 @@ function loadLesson (id) {
   $('resultsTitle').textContent = 'Results'
   ready.then(() => {
     if (hasShapes && l.start !== 'query') validate()
-    else if (queryEd.value.trim()) run()
+    else if (queryEd.value.trim() && !isUpdate(queryEd.value)) run()   // never re-apply an update on load
     else updateDataStatus()
   })
 }
@@ -226,7 +227,7 @@ function enhanceContent () {
       b.title = 'Append this snippet to the Data editor'
       b.onclick = () => {
         dataEd.value = dataEd.value.trimEnd() + '\n\n' + stripDuplicatePrefixes(code.textContent.trimEnd(), dataEd.value) + '\n'
-        showTab('data'); run(); scrollWorkbenchIntoView()
+        showTab('data'); runIfQuery(); scrollWorkbenchIntoView()
       }
       bar.append(b)
     }
@@ -249,13 +250,45 @@ function scrollWorkbenchIntoView () {
 // ---------- running ----------
 function queryForm (q) {
   const body = q.replace(/#[^\n]*/g, '').replace(/(PREFIX|BASE)[^\n]*/gi, '')
-  const m = body.match(/\b(SELECT|ASK|CONSTRUCT|DESCRIBE)\b/i)
+  const m = body.match(/\b(SELECT|ASK|CONSTRUCT|DESCRIBE|INSERT|DELETE|CLEAR|DROP|LOAD|CREATE|ADD|MOVE|COPY|WITH)\b/i)
   return m ? m[1].toUpperCase() : 'SELECT'
 }
 
+// ---------- data formats ----------
+// Prefixes for writing data back out: the lesson's own, plus any in the editors now.
+// (N-Triples, N-Quads and JSON-LD carry no prefixes, so a round trip would otherwise lose them.)
+const knownPrefixes = () => ({
+  ...collectPrefixes(current?.data || '', current?.shapes || '', current?.query || ''),
+  ...collectPrefixes(dataEd.value, shapesEd.value, queryEd.value)
+})
+const currentFormat = () => $('format').value
+function setFormat (f) {
+  $('format').value = FORMATS[f] ? f : 'turtle'
+  dataEd.setLanguage(FORMATS[currentFormat()].lang)
+  lastFormat = currentFormat()
+}
+let lastFormat = 'turtle'   // the format the Data panel currently holds
+$('format').onchange = () => {
+  const to = currentFormat()
+  // Convert the data to the chosen format when it parses; otherwise just reinterpret it.
+  try {
+    const pf = knownPrefixes()
+    const b = buildStore(dataEd.value, 'none', lastFormat)
+    const { text, note } = serialize(b.store.match(), to, pf)
+    dataEd.value = text
+    if (note) setTimeout(() => { $('dataStatus').insertAdjacentHTML('beforeend', ` · <span class="warn">${esc(note)}</span>`) }, 0)
+  } catch {}
+  setFormat(to)
+  saveDraft()
+  if (queryEd.value.trim()) runIfQuery(); else updateDataStatus()
+}
+
+const isUpdate = q => !['SELECT', 'ASK', 'CONSTRUCT', 'DESCRIBE'].includes(queryForm(q))
+const runIfQuery = () => { if (!isUpdate(queryEd.value)) run(); else updateDataStatus() }
+
 function build (reasoning = $('reasoning').value) {
   prefixes = collectPrefixes(dataEd.value, shapesEd.value, queryEd.value)
-  return buildStore(dataEd.value, reasoning)
+  return buildStore(dataEd.value, reasoning, currentFormat())
 }
 
 let lastBuild = null
@@ -265,7 +298,9 @@ function updateDataStatus (b = null) {
     b = b || build()
     lastBuild = b
     const total = b.store.size
+    const named = new Set(b.store.match().filter(q => q.graph.termType !== 'DefaultGraph').map(q => q.graph.value))
     let html = `${total} triple${total === 1 ? '' : 's'}`
+    if (named.size) html += ` (${named.size} named graph${named.size === 1 ? '' : 's'})`
     if ($('reasoning').value !== 'none') {
       html += ` · <button class="link-btn" id="showInferred">${b.inferred.length} inferred</button>`
     }
@@ -301,8 +336,9 @@ function clashHtml (b) {
 
 function run () {
   const b = updateDataStatus()
-  if (!b) { showError('Your Turtle data has a syntax error', $('dataStatus').textContent.replace('Data error: ', '')); return }
+  if (!b) { showError(`Your ${FORMATS[currentFormat()].label} data has a syntax error`, $('dataStatus').textContent.replace('Data error: ', '')); return }
   const q = queryEd.value
+  if (q.trim() && isUpdate(q)) return runUpdate(q)
   if (!q.trim()) { $('results').innerHTML = clashHtml(b) + '<p class="faint pad">Write a query, then press Run.</p>'; return }
   const t0 = performance.now()
   try {
@@ -431,6 +467,31 @@ function showPrefixHelp (missing, e) {
   if (btn) btn.onclick = () => { queryEd.value = lines.join('\n') + '\n\n' + queryEd.value.replace(/^\s+/, ''); run() }
 }
 
+// SPARQL Update: apply it to the data, rewrite the Data panel, and show what changed.
+function runUpdate (q) {
+  const t0 = performance.now()
+  try {
+    const fmt = currentFormat()
+    const { before, after } = applyUpdate(dataEd.value, fmt, q)
+    const { added, removed } = diffQuads(before, after)
+    if (added.length || removed.length) dataEd.value = serialize(after, fmt, knownPrefixes()).text
+    updateDataStatus()
+    const rows = [...removed.map(x => ['−', x]), ...added.map(x => ['+', x])]
+    $('resultsTitle').textContent = 'Update applied'
+    $('resultsMeta').textContent = `+${added.length} / −${removed.length} triples · ${Math.round(performance.now() - t0)} ms`
+    $('results').innerHTML = (rows.length
+      ? `<p class="faint pad">The Data panel now holds the updated graph (comments aren't kept). Press <strong>Reset</strong> to restore the lesson's data.</p>` +
+        `<table><thead><tr><th>change</th><th>subject</th><th>predicate</th><th>object</th><th>graph</th></tr></thead><tbody>${
+          rows.map(([sign, x]) => `<tr class="${sign === '+' ? 'added' : 'removed'}"><td>${sign}</td><td>${termHtml(x.subject)}</td><td>${termHtml(x.predicate)}</td><td>${termHtml(x.object)}</td><td>${x.graph.termType === 'DefaultGraph' ? '<span class="unbound">default</span>' : termHtml(x.graph)}</td></tr>`).join('')
+        }</tbody></table>`
+      : '<p class="faint pad">The update ran but changed nothing. (Did the WHERE pattern match anything?)</p>')
+  } catch (e) {
+    const missing = undeclaredPrefixes(q)
+    if (missing.length) showPrefixHelp(missing, e)
+    else showError('Update error', e)
+  }
+}
+
 function tableHtml (vars, rows) {
   if (!rows.length) return '<p class="faint pad">No results. (Zero rows is an answer too — check your patterns and prefixes.)</p>'
   return `<table class="bindings"><thead><tr>${vars.map(v => `<th>${esc(v)}</th>`).join('')}</tr></thead><tbody>${
@@ -450,7 +511,7 @@ async function validate () {
   const b = updateDataStatus()
   if (!b) { showError('Your Turtle data has a syntax error', $('dataStatus').textContent); return null }
   try {
-    const report = await validateShacl(dataEd.value, shapesEd.value, b.inferred)
+    const report = await validateShacl(b.store.match(), shapesEd.value)
     $('resultsTitle').textContent = 'SHACL validation report'
     $('resultsMeta').textContent = `${report.results.length} result${report.results.length === 1 ? '' : 's'}`
     let html = `<div class="conform ${report.conforms ? 'yes' : 'no'}">${report.conforms ? '✓ Data conforms to the shapes' : '✗ Data does not conform'}</div>`
@@ -501,7 +562,7 @@ $('checkBtn').onclick = async () => {
   const l = current
   try {
     if (l.check === 'query') {
-      run()
+      runIfQuery()
       const b = build(l.checkReasoning || undefined)
       const mine = resultSignature(b.store, queryEd.value)
       const expected = resultSignature(b.store, l.solution)
@@ -510,7 +571,7 @@ $('checkBtn').onclick = async () => {
       else if (mine.length !== expected.length) setCheck(false, `Not yet — you got ${mine.length} result(s), expected ${expected.length}.`)
       else setCheck(false, 'Not yet — same number of results, but different values (or order).')
     } else if (l.check === 'ask') {
-      run()
+      runIfQuery()
       const b = build(l.checkReasoning || undefined)
       const ok = JSON.parse(runQuery(b.store, l.checkQuery, 'json')).boolean
       setCheck(ok, ok ? '✓ Correct! The data now satisfies the goal.' : 'Not yet — the goal is not met by the current data.')
@@ -525,7 +586,7 @@ $('checkBtn').onclick = async () => {
       else setCheck(false, `Not yet — flagged: ${[...got].join(', ') || 'nothing'}. Expected exactly: ${[...want].join(', ')}.`)
     }
   } catch (e) {
-    setCheck(false, 'Error: ' + cleanError(e))
+    setCheck(false, 'Not yet — your query has an error (see the results panel).')
   }
 }
 
@@ -543,7 +604,7 @@ $('resetBtn').onclick = () => {
 }
 $('runBtn').onclick = () => run()
 $('validateBtn').onclick = () => validate()
-$('reasoning').onchange = () => { if (queryEd.value.trim()) run(); else updateDataStatus() }
+$('reasoning').onchange = () => { if (queryEd.value.trim()) runIfQuery(); else updateDataStatus() }
 
 // ---------- rules dialog ----------
 $('rulesBtn').onclick = () => {

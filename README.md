@@ -24,20 +24,21 @@ The whole course uses one running example: a small **online store** (customers, 
 
 | # | Section | Lessons |
 |---|---|---|
-| 0 | Start | Welcome and how the playground works |
-| 1–2 | Foundations | Triples & IRIs (ontology vs data namespaces) · Turtle syntax |
-| 3–8 | SPARQL basics | SELECT · FILTER/OPTIONAL · ORDER/LIMIT/DISTINCT · revenue with aggregates · property paths/UNION/BIND · ASK/CONSTRUCT |
-| 9–11 | RDFS | Customer/Party hierarchy & schema.org alignment · domain & range · labels and reasoning with paths |
-| 12–16 | OWL | Open world · inverse/transitive/property chains · sameAs with a CRM · AllDisjointClasses & inconsistency · defined classes (DeliveredOrder, NonRevenueOrder, LaptopBuyer) |
-| 17–18 | SKOS | The business glossary (GMV → revenue) · merchandise hierarchy vs Google Product Taxonomy |
-| 19–22 | SHACL | Product shape · value constraints · hierarchy shapes · SHACL vs OWL |
-| 23 | Wrap-up | Capstone: revenue per product family & next steps |
+| 0 | Start | Welcome, how the playground works, what runs under the hood |
+| 1–6 | Ontology concepts | What an ontology is (TBox/ABox, knowledge base) · classes & hierarchies vs OOP · properties, domain & range · restrictions (facets) in OWL vs SHACL · from ontology to knowledge graph (edges with properties: RDF vs property graphs; the 7 development steps) · same idea, different words (terminology map and false friends) |
+| 7–9 | Foundations | Triples & IRIs · Turtle syntax · RDF formats (Turtle, TriG, N-Triples, N-Quads, JSON-LD, RDF/XML) and named graphs |
+| 10–20 | SPARQL | SELECT · prefixes & IRIs · subject/predicate/object patterns · join patterns · FILTER/OPTIONAL · ORDER/LIMIT/DISTINCT · aggregates · property paths/UNION/BIND · ASK/CONSTRUCT · SPARQL Update (insert/update/upsert/delete) · SPARQL vs SQL vs Cypher |
+| 21–23 | RDFS | Customer/Party hierarchy & schema.org alignment · domain & range · labels and reasoning with paths |
+| 24–28 | OWL | Open world · inverse/transitive/property chains · sameAs with a CRM · AllDisjointClasses & inconsistency · defined classes (DeliveredOrder, NonRevenueOrder, LaptopBuyer) |
+| 29–30 | SKOS | The business glossary (GMV → revenue) · merchandise hierarchy vs Google Product Taxonomy |
+| 31–34 | SHACL | Product shape · value constraints · hierarchy shapes · SHACL vs OWL |
+| 35 | Wrap-up | Capstone: revenue per product family & next steps |
 
 ## How it works
 
 | Piece | Library |
 |---|---|
-| Triple store + SPARQL 1.1 | [Oxigraph](https://github.com/oxigraph/oxigraph) compiled to WebAssembly |
+| Triple store, SPARQL 1.1 query & update, RDF formats | [Oxigraph](https://github.com/oxigraph/oxigraph) compiled to WebAssembly |
 | Reasoning | SPARQL `INSERT` rules run to a fixpoint: RDFS plus a teaching subset of OWL 2 RL (inverse, transitive, symmetric, functional, sameAs, equivalence, hasValue/someValuesFrom/allValuesFrom, intersection/union, property chains, disjointness checks); see `src/engine.js` |
 | SHACL validation | [shacl-engine](https://github.com/rdf-ext/shacl-engine) |
 | Editors | CodeMirror 6 |
@@ -93,9 +94,14 @@ npm run dev
 
 Build with `npm run build`; the static site is written to `dist/`.
 
+## References
+
+- Natalya F. Noy and Deborah L. McGuinness, [*Ontology Development 101: A Guide to Creating Your First Ontology*](https://protege.stanford.edu/publications/ontology_development/ontology101.pdf), Stanford Knowledge Systems Laboratory, 2001. The ontology concepts section draws on its definitions and seven development steps.
+- [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs): the retail example used throughout.
+- [Oxigraph](https://github.com/oxigraph/oxigraph): the RDF database (Rust, compiled to WebAssembly) that runs the playground.
+
 ## License
 
 The retail ontology, taxonomies, glossary and data come from [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs).
-
 
 Apache License 2.0 (see `LICENSE`)

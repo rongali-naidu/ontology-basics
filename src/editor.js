@@ -5,6 +5,10 @@ import { StreamLanguage, HighlightStyle, syntaxHighlighting } from '@codemirror/
 import { tags as t } from '@lezer/highlight'
 import { turtle } from '@codemirror/legacy-modes/mode/turtle'
 import { sparql } from '@codemirror/legacy-modes/mode/sparql'
+import { json } from '@codemirror/legacy-modes/mode/javascript'
+import { xml } from '@codemirror/legacy-modes/mode/xml'
+
+const MODES = { turtle, sparql, json, xml }
 
 const highlight = HighlightStyle.define([
   { tag: [t.keyword, t.operatorKeyword], color: 'var(--tok-keyword)', fontWeight: '600' },
@@ -28,7 +32,8 @@ const theme = EditorView.theme({
 })
 
 export function createEditor (parent, lang, { onRun, onChange } = {}) {
-  const language = StreamLanguage.define(lang === 'sparql' ? sparql : turtle)
+  const languageSlot = new Compartment()
+  const language = languageSlot.of(StreamLanguage.define(MODES[lang] || turtle))
   const runKeys = keymap.of([{ key: 'Mod-Enter', run: () => { onRun?.(); return true } }])
   const view = new EditorView({
     parent,
@@ -48,8 +53,8 @@ export function createEditor (parent, lang, { onRun, onChange } = {}) {
   return {
     view,
     get value () { return view.state.doc.toString() },
-    set value (v) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } }) }
+    set value (v) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } }) },
+    setLanguage (l) { view.dispatch({ effects: languageSlot.reconfigure(StreamLanguage.define(MODES[l] || turtle)) }) }
   }
 }
 
-export { Compartment }

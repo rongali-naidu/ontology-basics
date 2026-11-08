@@ -16,6 +16,8 @@ This course teaches the core Semantic Web standards, one small step per page, us
 | **SKOS** | Taxonomies and glossaries: concepts, broader/narrower terms, synonyms |
 | **SHACL** | Validating data against rules ("every product must have a price") |
 
+The course starts with **Ontology concepts**: what an ontology is, its building blocks (classes, properties, restrictions, individuals), how they compare with object-oriented programming and databases, and a translation table for the many words different tools use for the same ideas. Then it goes hands-on with each standard.
+
 The store comes from the retail example in [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs/tree/main/examples/retail), with the same IRIs, ontology, taxonomies and data. Once you finish here, you can go straight to the full version.
 
 Everything runs **in your browser**. Nothing is sent to a server.
@@ -42,6 +44,10 @@ WHERE { ?s ?p ?o }
 ```
 
 Now change the price `1299.00` to something else and run again. That's the whole loop: **edit → run → observe**.
+
+## Under the hood
+
+The playground runs **[Oxigraph](https://github.com/oxigraph/oxigraph)**, an open-source RDF database written in Rust. It stores triples and quads, answers SPARQL 1.1 queries and updates, and reads and writes Turtle, TriG, N-Triples, N-Quads, JSON-LD and RDF/XML. It also runs as a server or embedded in Python and Rust apps. Here it's compiled to WebAssembly, so the whole database lives inside this page. SHACL validation uses [shacl-engine](https://github.com/rdf-ext/shacl-engine), and the reasoner is a set of SPARQL rules you can read under **rules**.
 
 Use **☰** (top-left) to jump to any lesson, or **Next →** below to start.
 

@@ -38,8 +38,8 @@ function parseLesson (path, src) {
     return ''
   })
   let check = null
-  if (blocks.solution) check = 'query'
-  else if (blocks.check) check = 'ask'
+  if (blocks.check) check = 'ask'           // an ASK on the learner's data (a solution query may also be given)
+  else if (blocks.solution) check = 'query'
   else if (meta.expect_focus !== undefined) check = 'shacl'
   return {
     id,
@@ -48,6 +48,7 @@ function parseLesson (path, src) {
     reasoning: meta.reasoning || 'none',
     checkReasoning: meta.check_reasoning || null,
     tab: meta.tab || null,
+    format: meta.format || 'turtle',
     start: meta.start || null,
     expectFocus: meta.expect_focus !== undefined
       ? meta.expect_focus.split(/[\s,]+/).filter(Boolean)
