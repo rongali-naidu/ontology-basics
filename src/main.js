@@ -14,15 +14,23 @@ const store = {
 }
 
 // ---------- theme ----------
+// Follows the system setting until the learner flips the switch; the choice is then remembered.
+const systemDark = matchMedia('(prefers-color-scheme: dark)')
+const isDark = () => document.documentElement.dataset.theme
+  ? document.documentElement.dataset.theme === 'dark'
+  : systemDark.matches
+function syncThemeSwitch () {
+  $('themeBtn').setAttribute('aria-checked', String(isDark()))
+}
 const savedTheme = store.get('ob:theme')
 if (savedTheme) document.documentElement.dataset.theme = savedTheme
+syncThemeSwitch()
+systemDark.addEventListener('change', syncThemeSwitch)
 $('themeBtn').onclick = () => {
-  const dark = document.documentElement.dataset.theme
-    ? document.documentElement.dataset.theme === 'dark'
-    : matchMedia('(prefers-color-scheme: dark)').matches
-  const next = dark ? 'light' : 'dark'
+  const next = isDark() ? 'light' : 'dark'
   document.documentElement.dataset.theme = next
   store.set('ob:theme', next)
+  syncThemeSwitch()
 }
 
 // ---------- prefixes & term display ----------
