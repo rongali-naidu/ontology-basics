@@ -205,3 +205,11 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
   .crumb, .progress .bar, .theme-label { display: none; }
   .prose h1 { font-size: 24px; }
 }
+
+/* friendly error explanations */
+.error-box.friendly p { margin: 6px 0 8px; color: var(--text); }
+.error-box.friendly code { font: 0.92em var(--mono); background: rgba(127,127,127,.15); padding: 0 4px; border-radius: 4px; }
+.error-box.friendly pre { background: var(--surface); color: var(--text); padding: 8px 10px; border-radius: 6px; margin: 0 0 8px; }
+.error-box details { margin-top: 10px; color: var(--muted); }
+.error-box details summary { cursor: pointer; font-size: 12px; }
+.warn-box code { font: 0.92em var(--mono); background: rgba(127,127,127,.15); padding: 0 4px; border-radius: 4px; }

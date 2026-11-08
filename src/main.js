@@ -304,6 +304,7 @@ function run () {
         meta = 'ASK'
       } else {
         html += tableHtml(json.head.vars, json.results.bindings.map(r => json.head.vars.map(v => r[v])))
+        if (!json.results.bindings.length) html += unknownNamesHint(b.store, q)
         const n = json.results.bindings.length
         meta = `${n} row${n === 1 ? '' : 's'}`
       }
@@ -316,8 +317,106 @@ function run () {
     $('resultsMeta').textContent = `${meta} · ${Math.round(performance.now() - t0)} ms`
     $('results').innerHTML = html
   } catch (e) {
-    showError('Query error', e)
+    const missing = undeclaredPrefixes(q)
+    const bare = missing.length ? [] : bareWords(q)
+    if (missing.length) showPrefixHelp(missing, e)
+    else if (bare.length) showBareWordHelp(bare, q, e)
+    else showError('Query error', e)
   }
+}
+
+// Prefixes used in the query (ex:thing) that have no PREFIX line in the query itself.
+function undeclaredPrefixes (q) {
+  const declared = new Set([...q.matchAll(/PREFIX\s+([\w-]*):/gi)].map(m => m[1]))
+  const body = q
+    .replace(/#[^\n]*/g, ' ')
+    .replace(/<[^<>\s]*>/g, ' ')
+    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, ' ')
+    .replace(/PREFIX\s+[\w-]*:/gi, ' ')
+  const used = new Set([...body.matchAll(/(?<![\w?$:-])([A-Za-z][\w-]*|):(?=[\w(])/g)].map(m => m[1]))
+  return [...used].filter(p => !declared.has(p))
+}
+
+// When a query finds nothing, point out names in it that never occur in the data (usually typos).
+function unknownNamesHint (st, q) {
+  const declared = {}
+  for (const m of q.matchAll(/PREFIX\s+([\w-]*):\s*<([^>]*)>/gi)) declared[m[1]] = m[2]
+  const body = q.replace(/#[^\n]*/g, ' ').replace(/"(?:[^"\\]|\\.)*"/g, ' ').replace(/PREFIX[^\n]*/gi, ' ')
+  const iris = new Map()
+  for (const m of body.matchAll(/(?<![\w?$:-])([A-Za-z][\w-]*|):([\w-]+)/g)) {
+    if (declared[m[1]] !== undefined) iris.set(declared[m[1]] + m[2], `${m[1]}:${m[2]}`)
+  }
+  for (const m of body.matchAll(/<([^<>\s]+)>/g)) iris.set(m[1], `<${m[1]}>`)
+  const unknown = []
+  for (const [iri, shown] of iris) {
+    if (iri.startsWith(DEFAULT_PREFIXES.rdf) || iri.startsWith(DEFAULT_PREFIXES.rdfs) || iri.startsWith(DEFAULT_PREFIXES.owl) || iri.startsWith(DEFAULT_PREFIXES.xsd)) continue
+    const ask = `ASK { { <${iri}> ?p ?o } UNION { ?s <${iri}> ?o } UNION { ?s ?p <${iri}> } }`
+    try { if (!JSON.parse(runQuery(st, ask, 'json')).boolean) unknown.push(shown) } catch {}
+  }
+  if (!unknown.length) return ''
+  return `<div class="warn-box"><strong>Not found in the data:</strong> ${unknown.map(n => `<code>${esc(n)}</code>`).join(', ')}. Check the spelling and the prefix IRI, because names must match exactly.</div>`
+}
+
+// Words inside WHERE { … } that are neither variables, prefixed names, IRIs nor keywords,
+// e.g. `?s author shelly`. SPARQL needs `ex:author` or a full <IRI>.
+const SPARQL_WORDS = new Set(('a true false filter optional union minus graph service silent bind values as not exists in undef ' +
+  'select distinct reduced where order by asc desc limit offset group having from named construct ask describe').split(' '))
+const SKIP_TOKENS = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|<[^<>\s]*>|#[^\n]*)/
+function bareWords (q) {
+  const open = q.indexOf('{')
+  const close = q.lastIndexOf('}')
+  if (open < 0) return []
+  const inner = q.slice(open + 1, close > open ? close : undefined)
+    .replace(new RegExp(SKIP_TOKENS.source, 'g'), ' ')
+  const words = new Set()
+  for (const m of inner.matchAll(/(?<![\w?$:@^.-])([A-Za-z_][\w-]*)(?![\w:(-])/g)) {
+    if (!SPARQL_WORDS.has(m[1].toLowerCase())) words.add(m[1])
+  }
+  return [...words]
+}
+
+function showBareWordHelp (words, q, e) {
+  const dataPrefixes = [...dataEd.value.matchAll(/@prefix\s+([\w-]*):\s*<([^>]*)>/gi)]
+    .filter(m => !Object.values(DEFAULT_PREFIXES).includes(m[2]))
+  const pfx = dataPrefixes[0]
+  const names = words.map(w => `<code>${esc(w)}</code>`).join(', ')
+  let fixHtml = ''
+  let fixed = null
+  if (pfx) {
+    const re = new RegExp(SKIP_TOKENS.source + `|(?<![\\w?$:@^.-])\\b(${words.join('|')})\\b(?![\\w:(-])`, 'g')
+    const head = q.slice(0, q.indexOf('{') + 1)
+    const tail = q.slice(q.indexOf('{') + 1).replace(re, (m, skip, word) => skip !== undefined ? skip : `${pfx[1]}:${word}`)
+    fixed = head + tail
+    if (!new RegExp(`PREFIX\\s+${pfx[1]}:`, 'i').test(fixed)) fixed = `PREFIX ${pfx[1]}: <${pfx[2]}>\n\n` + fixed.replace(/^\s+/, '')
+    fixHtml = `<p>Did you mean ${words.map(w => `<code>${esc(pfx[1])}:${esc(w)}</code>`).join(', ')}? Here is the query with that fixed:</p>
+      <pre>${esc(fixed)}</pre><button class="btn small primary" id="fixBare">Use this query</button>`
+  }
+  $('resultsTitle').textContent = 'Error'
+  $('resultsMeta').textContent = ''
+  $('results').innerHTML = `<div class="error-box friendly">
+    <strong>Name without a prefix: ${names}</strong>
+    <p>In SPARQL every name must be a <em>prefixed name</em> like <code>ex:author</code> or a full IRI like <code>&lt;http://example.org/library#author&gt;</code>. A bare word isn't either one. (Variables start with <code>?</code>.)</p>
+    ${fixHtml}
+    <details><summary>Technical details</summary><pre>${esc(cleanError(e))}</pre></details>
+  </div>`
+  if (fixed) $('fixBare').onclick = () => { queryEd.value = fixed; run() }
+}
+
+function showPrefixHelp (missing, e) {
+  const known = collectPrefixes(dataEd.value, shapesEd.value)
+  const fixable = missing.filter(p => known[p])
+  const lines = fixable.map(p => `PREFIX ${p}: <${known[p]}>`)
+  const names = missing.map(p => `<code>${esc(p)}:</code>`).join(', ')
+  $('resultsTitle').textContent = 'Error'
+  $('resultsMeta').textContent = ''
+  $('results').innerHTML = `<div class="error-box friendly">
+    <strong>Undeclared prefix: ${names}</strong>
+    <p>A query must declare every prefix it uses. The <code>@prefix</code> lines in the Data panel apply to the data only, not to the query.${lines.length ? ' Add this to the top of your query:' : ''}</p>
+    ${lines.length ? `<pre>${esc(lines.join('\n'))}</pre><button class="btn small primary" id="addPrefixes">Add ${lines.length === 1 ? 'it' : 'them'} and run</button>` : ''}
+    <details><summary>Technical details</summary><pre>${esc(cleanError(e))}</pre></details>
+  </div>`
+  const btn = $('addPrefixes')
+  if (btn) btn.onclick = () => { queryEd.value = lines.join('\n') + '\n\n' + queryEd.value.replace(/^\s+/, ''); run() }
 }
 
 function tableHtml (vars, rows) {
