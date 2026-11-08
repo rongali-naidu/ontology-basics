@@ -7,141 +7,187 @@ check_reasoning: owl
 
 # Defining classes by their properties
 
-So far we've *told* the reasoner which class things belong to. With **restrictions**, you can define a class by a condition, and the reasoner works out the members itself.
+So far we've *told* the reasoner which class things belong to. With **restrictions**, you define a class by a condition, and the reasoner works out the members itself. The retail ontology has three such **defined classes** (in `retail-defined-classes.ttl`), all loaded on the right.
 
-A restriction is an anonymous class (a blank node) that describes "the things whose property *P* satisfies some condition":
+A restriction is an anonymous class (a blank node) describing "the things whose property *P* satisfies some condition".
 
-## owl:hasValue: "has this exact value"
+## owl:hasValue + owl:intersectionOf: delivered orders
 
 ```turtle
-ex:HorrorBook owl:equivalentClass [
-    a owl:Restriction ;
-    owl:onProperty ex:genre ;
-    owl:hasValue   ex:Horror
-] .
+retail:DeliveredOrder owl:equivalentClass [
+    owl:intersectionOf ( retail:Order
+                         [ a owl:Restriction ; owl:onProperty retail:status ;
+                           owl:hasValue "DELIVERED" ] ) ] .
 ```
 
-*A HorrorBook is exactly something whose `ex:genre` is `ex:Horror`.* Because it's an **equivalence**, it works both ways:
-
-- anything with genre Horror is inferred to be a `ex:HorrorBook`;
-- anything stated to be a `ex:HorrorBook` gets `ex:genre ex:Horror`.
+*A delivered order is exactly an Order whose status is "DELIVERED".* Because it's an **equivalence**, nobody has to tag orders as delivered. The reasoner classifies them:
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?b WHERE { ?b a ex:HorrorBook }
+SELECT ?order WHERE { ?order a retail:DeliveredOrder }
 ```
 
-## owl:someValuesFrom: "has at least one value of this type"
+## owl:unionOf: orders that don't count as revenue
 
 ```turtle
-ex:Borrower owl:equivalentClass [
-    a owl:Restriction ;
-    owl:onProperty     ex:hasLoan ;
-    owl:someValuesFrom ex:Loan
-] .
+retail:NonRevenueOrder owl:equivalentClass [ owl:intersectionOf ( retail:Order
+    [ owl:unionOf ( [ owl:onProperty retail:status ; owl:hasValue "CANCELLED" ]
+                    [ owl:onProperty retail:status ; owl:hasValue "RETURNED" ] ) ] ) ] .
 ```
 
-*A Borrower is anyone with at least one loan.*
+The glossary's revenue rule ("not cancelled or returned") is now **part of the model**, not a `FILTER` buried in every query:
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?who WHERE { ?who a ex:Borrower }
+SELECT ?order ?status WHERE { ?order a retail:NonRevenueOrder ; retail:status ?status }
 ```
 
-## owl:allValuesFrom: "every value is of this type"
+## owl:someValuesFrom: laptop buyers
 
 ```turtle
-ex:Anthology rdfs:subClassOf [
-    a owl:Restriction ;
-    owl:onProperty    ex:contains ;
-    owl:allValuesFrom ex:ShortStory
-] .
+retail:LaptopBuyer owl:equivalentClass [ owl:intersectionOf ( retail:Customer
+    [ owl:onProperty retail:purchased ;
+      owl:someValuesFrom [ owl:onProperty retail:inCategory ; owl:hasValue ex:SUB-LAPTOP ] ] ) ] .
 ```
 
-Everything an anthology contains is inferred to be a `ex:ShortStory`.
+*A laptop buyer is a customer who purchased **at least one** thing whose category is Laptops.* This builds on the `purchased` property chain from the previous OWL lesson:
 
-> Full OWL also has cardinality restrictions (`owl:minCardinality`, `owl:qualifiedCardinality` …), `owl:complementOf` and more. This site runs a *subset* of the **OWL 2 RL** rules: enough to learn the ideas. For complete OWL DL reasoning, use a tool like Protégé with the HermiT reasoner.
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?who WHERE { ?who a retail:LaptopBuyer }
+```
+
+> The ontology also has **cardinality** restrictions, such as "every order is placed by exactly one customer" (`owl:qualifiedCardinality 1`). Under the open world those can't flag *missing* data, which is why the retail example also has SHACL shapes. This site runs a *subset* of the **OWL 2 RL** rules: enough to learn the ideas. For complete OWL DL reasoning, use Protégé with the HermiT reasoner.
 
 ## Exercise
 
-Define **`ex:SciFiBook`** as equivalent to a restriction on `ex:genre` with the value `ex:SciFi`. Then *The Time Machine* and *The War of the Worlds* should be classified automatically.
+Define **`retail:ShippedOrder`** in the same style as `retail:DeliveredOrder`: an Order whose `retail:status` has the value `"SHIPPED"`. Then `ex:ORD-0002` should be classified automatically, and no other order.
 
 ```turtle data
-@prefix ex:   <http://example.org/library#> .
-@prefix owl:  <http://www.w3.org/2002/07/owl#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
 
-# ---- Defined classes ----
-ex:HorrorBook owl:equivalentClass [
-    a owl:Restriction ; owl:onProperty ex:genre ; owl:hasValue ex:Horror ] .
+# ---- From the retail ontology ----
+retail:PremiumCustomer rdfs:subClassOf retail:Customer .
+retail:placedBy owl:inverseOf retail:placedOrder .
+retail:purchased owl:propertyChainAxiom ( retail:placedOrder retail:hasLine retail:forProduct ) .
 
-ex:Borrower owl:equivalentClass [
-    a owl:Restriction ; owl:onProperty ex:hasLoan ; owl:someValuesFrom ex:Loan ] .
+# ---- Defined classes (retail-defined-classes.ttl) ----
+retail:DeliveredOrder a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Order
+                             [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "DELIVERED" ] ) ] .
 
-ex:Anthology rdfs:subClassOf [
-    a owl:Restriction ; owl:onProperty ex:contains ; owl:allValuesFrom ex:ShortStory ] .
+retail:NonRevenueOrder a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Order
+                             [ a owl:Class ; owl:unionOf (
+                                 [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "CANCELLED" ]
+                                 [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "RETURNED" ] ) ] ) ] .
+
+retail:LaptopBuyer a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Customer
+                             [ a owl:Restriction ; owl:onProperty retail:purchased ;
+                               owl:someValuesFrom [ a owl:Restriction ; owl:onProperty retail:inCategory ;
+                                                    owl:hasValue ex:SUB-LAPTOP ] ] ) ] .
 
 # ---- Data ----
-ex:frankenstein ex:genre ex:Horror .
-ex:dracula      ex:genre ex:Horror .
-ex:timeMachine  ex:genre ex:SciFi .
-ex:warOfWorlds  ex:genre ex:SciFi .
-ex:emma         ex:genre ex:Romance .
-ex:ghostStories a ex:HorrorBook .       # genre will be inferred
+ex:C1 a retail:PremiumCustomer .
+ex:C2 a retail:Customer .
+ex:C3 a retail:PremiumCustomer .
+ex:PRD-0001 retail:inCategory ex:SUB-LAPTOP .
+ex:PRD-0003 retail:inCategory ex:SUB-CHARGE .
+ex:PRD-0004 retail:inCategory ex:SUB-PRINTB .
+ex:PRD-0005 retail:inCategory ex:SUB-KNIVES .
 
-ex:alice ex:hasLoan ex:loan1 .  ex:loan1 a ex:Loan .
-ex:bob   ex:hasLoan ex:loan2 .  ex:loan2 a ex:Loan .
-ex:chen  ex:name "Chen" .
-
-ex:victorianTales a ex:Anthology ; ex:contains ex:theSignalman , ex:theOpenWindow .
+ex:ORD-0001 a retail:Order ; retail:status "DELIVERED" ; retail:placedBy ex:C1 ; retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .
+ex:ORD-0002 a retail:Order ; retail:status "SHIPPED"   ; retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0002-1 .
+ex:ORD-0004 a retail:Order ; retail:status "PLACED"    ; retail:placedBy ex:C3 ; retail:hasLine ex:ORD-0004-1 .
+ex:ORD-0005 a retail:Order ; retail:status "CANCELLED" ; retail:placedBy ex:C3 ; retail:hasLine ex:ORD-0005-1 .
+ex:ORD-0006 a retail:Order ; retail:status "RETURNED"  ; retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0006-1 .
+ex:ORD-0001-1 retail:forProduct ex:PRD-0001 .
+ex:ORD-0001-2 retail:forProduct ex:PRD-0003 .
+ex:ORD-0002-1 retail:forProduct ex:PRD-0004 .
+ex:ORD-0004-1 retail:forProduct ex:PRD-0005 .
+ex:ORD-0005-1 retail:forProduct ex:PRD-0004 .
+ex:ORD-0006-1 retail:forProduct ex:PRD-0005 .
 ```
 
 ```sparql query
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?b ?genre WHERE { ?b a ex:HorrorBook ; ex:genre ?genre }
+SELECT ?order WHERE { ?order a retail:DeliveredOrder }
 ```
 
 ```sparql check
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
 ASK {
-  ex:timeMachine a ex:SciFiBook . ex:warOfWorlds a ex:SciFiBook .
-  FILTER NOT EXISTS { ex:dracula a ex:SciFiBook }
-  FILTER NOT EXISTS { ex:timeMachine a ex:HorrorBook }
+  ex:ORD-0002 a retail:ShippedOrder .
+  FILTER NOT EXISTS { ?o a retail:ShippedOrder FILTER(?o != ex:ORD-0002) }
 }
 ```
 
 ```turtle solution-data
-@prefix ex:   <http://example.org/library#> .
-@prefix owl:  <http://www.w3.org/2002/07/owl#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
 
-# ---- Defined classes ----
-ex:HorrorBook owl:equivalentClass [
-    a owl:Restriction ; owl:onProperty ex:genre ; owl:hasValue ex:Horror ] .
+# ---- From the retail ontology ----
+retail:PremiumCustomer rdfs:subClassOf retail:Customer .
+retail:placedBy owl:inverseOf retail:placedOrder .
+retail:purchased owl:propertyChainAxiom ( retail:placedOrder retail:hasLine retail:forProduct ) .
 
-ex:SciFiBook owl:equivalentClass [
-    a owl:Restriction ; owl:onProperty ex:genre ; owl:hasValue ex:SciFi ] .
+# ---- Defined classes (retail-defined-classes.ttl) ----
+retail:DeliveredOrder a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Order
+                             [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "DELIVERED" ] ) ] .
 
-ex:Borrower owl:equivalentClass [
-    a owl:Restriction ; owl:onProperty ex:hasLoan ; owl:someValuesFrom ex:Loan ] .
+retail:ShippedOrder a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Order
+                             [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "SHIPPED" ] ) ] .
 
-ex:Anthology rdfs:subClassOf [
-    a owl:Restriction ; owl:onProperty ex:contains ; owl:allValuesFrom ex:ShortStory ] .
+retail:NonRevenueOrder a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Order
+                             [ a owl:Class ; owl:unionOf (
+                                 [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "CANCELLED" ]
+                                 [ a owl:Restriction ; owl:onProperty retail:status ; owl:hasValue "RETURNED" ] ) ] ) ] .
+
+retail:LaptopBuyer a owl:Class ;
+    owl:equivalentClass [ a owl:Class ;
+        owl:intersectionOf ( retail:Customer
+                             [ a owl:Restriction ; owl:onProperty retail:purchased ;
+                               owl:someValuesFrom [ a owl:Restriction ; owl:onProperty retail:inCategory ;
+                                                    owl:hasValue ex:SUB-LAPTOP ] ] ) ] .
 
 # ---- Data ----
-ex:frankenstein ex:genre ex:Horror .
-ex:dracula      ex:genre ex:Horror .
-ex:timeMachine  ex:genre ex:SciFi .
-ex:warOfWorlds  ex:genre ex:SciFi .
-ex:emma         ex:genre ex:Romance .
-ex:ghostStories a ex:HorrorBook .       # genre will be inferred
+ex:C1 a retail:PremiumCustomer .
+ex:C2 a retail:Customer .
+ex:C3 a retail:PremiumCustomer .
+ex:PRD-0001 retail:inCategory ex:SUB-LAPTOP .
+ex:PRD-0003 retail:inCategory ex:SUB-CHARGE .
+ex:PRD-0004 retail:inCategory ex:SUB-PRINTB .
+ex:PRD-0005 retail:inCategory ex:SUB-KNIVES .
 
-ex:alice ex:hasLoan ex:loan1 .  ex:loan1 a ex:Loan .
-ex:bob   ex:hasLoan ex:loan2 .  ex:loan2 a ex:Loan .
-ex:chen  ex:name "Chen" .
-
-ex:victorianTales a ex:Anthology ; ex:contains ex:theSignalman , ex:theOpenWindow .
+ex:ORD-0001 a retail:Order ; retail:status "DELIVERED" ; retail:placedBy ex:C1 ; retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .
+ex:ORD-0002 a retail:Order ; retail:status "SHIPPED"   ; retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0002-1 .
+ex:ORD-0004 a retail:Order ; retail:status "PLACED"    ; retail:placedBy ex:C3 ; retail:hasLine ex:ORD-0004-1 .
+ex:ORD-0005 a retail:Order ; retail:status "CANCELLED" ; retail:placedBy ex:C3 ; retail:hasLine ex:ORD-0005-1 .
+ex:ORD-0006 a retail:Order ; retail:status "RETURNED"  ; retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0006-1 .
+ex:ORD-0001-1 retail:forProduct ex:PRD-0001 .
+ex:ORD-0001-2 retail:forProduct ex:PRD-0003 .
+ex:ORD-0002-1 retail:forProduct ex:PRD-0004 .
+ex:ORD-0004-1 retail:forProduct ex:PRD-0005 .
+ex:ORD-0005-1 retail:forProduct ex:PRD-0004 .
+ex:ORD-0006-1 retail:forProduct ex:PRD-0005 .
 ```

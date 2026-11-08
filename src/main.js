@@ -62,6 +62,9 @@ function compactIri (iri) {
   return best ? `${best[0]}:${best[2]}` : `<${iri}>`
 }
 
+// Numbers are shown plainly (datatype in the tooltip); other typed literals keep their ^^type.
+const NUMERIC = /#(integer|decimal|double|float|long|int|short|byte|nonNegativeInteger|positiveInteger|nonPositiveInteger|negativeInteger|unsignedLong|unsignedInt)$/
+
 // Terms come either from Oxigraph objects (termType) or SPARQL JSON (type).
 function termInfo (t) {
   if (!t) return { text: '', cls: 'unbound' }
@@ -72,6 +75,7 @@ function termInfo (t) {
   const dt = t.datatype?.value ?? t.datatype
   let suffix = ''
   if (lang) suffix = `@${lang}`
+  else if (dt && NUMERIC.test(dt)) return { text: t.value, cls: 'number', title: compactIri(dt) }
   else if (dt && dt !== DEFAULT_PREFIXES.xsd + 'string') suffix = `^^${compactIri(dt)}`
   return { text: t.value, suffix, cls: 'literal' }
 }
@@ -86,6 +90,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function termHtml (t) {
   const i = termInfo(t)
   if (i.cls === 'unbound') return '<span class="unbound">—</span>'
+  if (i.cls === 'number') return `<span class="number" title="${esc(i.title)}">${esc(i.text)}</span>`
   if (i.cls === 'literal') return `<span class="literal">${esc(i.text)}</span>${i.suffix ? `<span class="dt">${esc(i.suffix)}</span>` : ''}`
   return `<span class="${i.cls}"${i.title ? ` title="${esc(i.title)}"` : ''}>${esc(i.text)}</span>`
 }
@@ -111,7 +116,8 @@ function showTab (name) {
 
 // ---------- lesson navigation ----------
 let current = null
-const doneSet = new Set(store.get('ob:done', []))
+const DONE_KEY = 'ob:done:retail'   // new key: the course switched to the retail example
+const doneSet = new Set(store.get(DONE_KEY, []))
 
 function buildToc () {
   let html = ''
@@ -141,7 +147,13 @@ $('tocBtn').onclick = () => toggleToc(!document.body.classList.contains('toc-ope
 $('scrim').onclick = () => toggleToc(false)
 $('toc').addEventListener('click', e => { if (e.target.closest('a')) toggleToc(false) })
 
-function draftKey (l) { return `ob:lesson:${l.id}` }
+// Saved edits are tied to the lesson's starting content, so a changed lesson ignores stale drafts.
+function hash (str) {
+  let h = 5381
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+function draftKey (l) { return `ob:lesson:${l.id}:${hash(l.data + '\u0000' + l.query + '\u0000' + (l.shapes || ''))}` }
 function saveDraft () {
   if (!current) return
   store.set(draftKey(current), { data: dataEd.value, shapes: shapesEd.value, query: queryEd.value })
@@ -480,7 +492,7 @@ function setCheck (ok, msg) {
   $('checkMsg').className = 'check-msg ' + (ok ? 'ok' : 'bad')
   if (ok) {
     doneSet.add(current.id)
-    store.set('ob:done', [...doneSet])
+    store.set(DONE_KEY, [...doneSet])
     buildToc()
   }
 }

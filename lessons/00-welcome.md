@@ -5,16 +5,18 @@ section: Start
 
 # Learn ontologies by doing
 
-This course teaches the core Semantic Web standards, one small step per page:
+This course teaches the core Semantic Web standards, one small step per page, using **one running example: a small online store**. It has customers, orders, products, brands and a product hierarchy.
 
 | Standard | What it's for |
 |---|---|
 | **RDF / Turtle** | Writing facts as a graph of *triples* |
 | **SPARQL** | Querying that graph |
 | **RDFS** | Simple vocabularies: classes, sub-classes, properties |
-| **OWL** | Richer meaning: inverse, transitive and equivalent things, and logical restrictions |
-| **SKOS** | Thesauri and taxonomies: concepts, broader/narrower terms, labels |
-| **SHACL** | Validating data against rules ("every book must have a title") |
+| **OWL** | Richer meaning: inverse, transitive and equivalent things, and logical class definitions |
+| **SKOS** | Taxonomies and glossaries: concepts, broader/narrower terms, synonyms |
+| **SHACL** | Validating data against rules ("every product must have a price") |
+
+The store comes from the retail example in [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs/tree/main/examples/retail), with the same IRIs, ontology, taxonomies and data. Once you finish here, you can go straight to the full version.
 
 Everything runs **in your browser**. Nothing is sent to a server.
 
@@ -32,23 +34,26 @@ The **Reasoning** menu above the data switches inference on, from RDFS up to a s
 
 ## Try it now
 
-The data on the right describes one book in three triples. Press **▶ Run**. The query asks for *every* triple in the graph:
+The data on the right describes one product in five triples. Press **▶ Run**. The query asks for *every* triple in the graph:
 
 ```sparql
 SELECT ?s ?p ?o
 WHERE { ?s ?p ?o }
 ```
 
-Now change `"Frankenstein"` in the data to another title and run it again. That's the whole loop: **edit → run → observe**.
+Now change the price `1299.00` to something else and run again. That's the whole loop: **edit → run → observe**.
 
 Use **☰** (top-left) to jump to any lesson, or **Next →** below to start.
 
 ```turtle data
-@prefix ex: <http://example.org/library#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
 
-ex:frankenstein a ex:Book ;
-    ex:title  "Frankenstein" ;
-    ex:author ex:shelley .
+ex:PRD-0001 a retail:Product ;
+    retail:name  "Laptop Pro 14" ;
+    retail:sku   "LAP-PRO-14" ;
+    retail:price 1299.00 ;
+    retail:brand ex:BRAND-ExampleTech .
 ```
 
 ```sparql query

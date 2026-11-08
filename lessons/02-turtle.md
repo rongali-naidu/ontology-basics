@@ -10,41 +10,43 @@ section: Foundations
 ## `;` repeats the subject, `,` repeats subject and predicate
 
 ```turtle
-@prefix ex: <http://example.org/library#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
 
-ex:pride ex:title "Pride and Prejudice" ;     # same subject…
-         ex:author ex:austen ;                 # …again
-         ex:subject ex:Marriage , ex:Class .   # two objects for one predicate
+ex:ORD-0001 retail:placedBy ex:C1 ;                    # same subject…
+            retail:status "DELIVERED" ;                # …again
+            retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .   # two objects for one predicate
 ```
 
 That's four triples, and the final `.` ends the group.
 
 ## `a` means `rdf:type`
 
-`ex:pride a ex:Book .` says *"pride is a Book"*. The word `a` is short for the IRI `rdf:type`, which you'll use constantly.
+`ex:ORD-0001 a retail:Order .` says *"ORD-0001 is an Order"*. The word `a` is short for the IRI `rdf:type`, which you'll use constantly.
 
 ## Literals: strings, numbers, dates and languages
 
 | Turtle | Meaning |
 |---|---|
-| `"Emma"` | a plain string |
-| `"Emma"@en` | a string tagged as English |
-| `"Emma"@fr` | the same text tagged as French: a *different* literal |
-| `1815` | shorthand for `"1815"^^xsd:integer` |
-| `3.5` | an `xsd:decimal` |
+| `"Laptop Pro 14"` | a plain string |
+| `"Electronics"@en` | a string tagged as English |
+| `"Électronique"@fr` | French text: a *different* literal |
+| `2` | shorthand for `"2"^^xsd:integer` |
+| `29.99` | shorthand for `"29.99"^^xsd:decimal` (good for money) |
 | `true` | an `xsd:boolean` |
-| `"2026-11-20"^^xsd:date` | a typed date (`xsd:` must be declared) |
+| `"2026-09-01"^^xsd:date` | a typed date (`xsd:` must be declared) |
 
-Datatypes matter: `1815` and `"1815"` are **different** values, and only the first sorts and compares as a number.
+Datatypes matter: `29.99` and `"29.99"` are **different** values, and only the first sorts and compares as a number.
 
 ## Blank nodes: things without a name
 
-Sometimes a thing has no IRI of its own, such as an address. `[ … ]` creates an anonymous **blank node**:
+Sometimes a thing has no IRI of its own, such as a shipping address used only once. `[ … ]` creates an anonymous **blank node**:
 
 ```turtle-add
-@prefix ex: <http://example.org/library#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
 
-ex:austen ex:address [ ex:city "Bath" ; ex:country "UK" ] .
+ex:C1 retail:hasAddress [ retail:city "Sampleton" ; retail:postalCode "00001" ] .
 ```
 
 Press **+ Add to data** under the snippet, then look at the results: the address appears as `_:something`.
@@ -55,29 +57,34 @@ Press **+ Add to data** under the snippet, then look at the results: the address
 
 ## Exercise
 
-Add the book **`ex:emma`** to the data using `;`, with these four facts:
+Add the product **`ex:PRD-0003`** to the data using `;`, with these four facts:
 
-- it is `a ex:Book`
-- `ex:title` is `"Emma"` **tagged as English** (`@en`)
-- `ex:year` is the integer `1815`
-- `ex:author` is `ex:austen`
+- it is `a retail:Product`
+- `retail:name` is `"USB-C Charger 65W"`
+- `retail:price` is the decimal `29.99`
+- `retail:brand` is `ex:BRAND-ExampleTech`
 
 If you make a syntax error, the bar under the data editor turns red and tells you where.
 
 ```turtle data
-@prefix ex:  <http://example.org/library#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
 
-ex:pride a ex:Book ;
-    ex:title  "Pride and Prejudice"@en , "Orgueil et Préjugés"@fr ;
-    ex:year   1813 ;
-    ex:author ex:austen .
+ex:PRD-0001 a retail:Product ;
+    retail:name  "Laptop Pro 14" ;
+    retail:price 1299.00 ;
+    retail:brand ex:BRAND-ExampleTech .
 
-ex:austen a ex:Author ;
-    ex:name "Jane Austen" ;
-    ex:born "1775-12-16"^^xsd:date .
+ex:FAM-ELEC a retail:ProductFamily ;
+    retail:code "FAM-ELEC" ;
+    retail:name "Electronics"@en , "Électronique"@fr .
 
-# Add ex:emma below this line
+ex:ORD-0001 a retail:Order ;
+    retail:orderDate "2026-09-01"^^xsd:date ;
+    retail:status "DELIVERED" .
+
+# Add ex:PRD-0003 below this line
 
 ```
 
@@ -87,25 +94,35 @@ WHERE { ?s ?p ?o }
 ```
 
 ```sparql check
-PREFIX ex: <http://example.org/library#>
-ASK { ex:emma a ex:Book ; ex:title "Emma"@en ; ex:year 1815 ; ex:author ex:austen }
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+ASK {
+  ex:PRD-0003 a retail:Product ; retail:name "USB-C Charger 65W" ;
+              retail:price ?p ; retail:brand ex:BRAND-ExampleTech .
+  FILTER(?p = 29.99)
+}
 ```
 
 ```turtle solution-data
-@prefix ex:  <http://example.org/library#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
 
-ex:pride a ex:Book ;
-    ex:title  "Pride and Prejudice"@en , "Orgueil et Préjugés"@fr ;
-    ex:year   1813 ;
-    ex:author ex:austen .
+ex:PRD-0001 a retail:Product ;
+    retail:name  "Laptop Pro 14" ;
+    retail:price 1299.00 ;
+    retail:brand ex:BRAND-ExampleTech .
 
-ex:austen a ex:Author ;
-    ex:name "Jane Austen" ;
-    ex:born "1775-12-16"^^xsd:date .
+ex:FAM-ELEC a retail:ProductFamily ;
+    retail:code "FAM-ELEC" ;
+    retail:name "Electronics"@en , "Électronique"@fr .
 
-ex:emma a ex:Book ;
-    ex:title  "Emma"@en ;
-    ex:year   1815 ;
-    ex:author ex:austen .
+ex:ORD-0001 a retail:Order ;
+    retail:orderDate "2026-09-01"^^xsd:date ;
+    retail:status "DELIVERED" .
+
+ex:PRD-0003 a retail:Product ;
+    retail:name  "USB-C Charger 65W" ;
+    retail:price 29.99 ;
+    retail:brand ex:BRAND-ExampleTech .
 ```

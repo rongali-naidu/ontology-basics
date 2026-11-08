@@ -1,5 +1,5 @@
 ---
-title: Inverse, transitive, symmetric
+title: Inverse, transitive, chains
 section: OWL
 reasoning: owl
 check_reasoning: owl
@@ -12,108 +12,130 @@ OWL lets you describe *how a property behaves*. Each characteristic is a rule th
 ## owl:inverseOf
 
 ```turtle
-ex:wrote owl:inverseOf ex:author .
+retail:placedBy owl:inverseOf retail:placedOrder .
 ```
 
-`ex:frankenstein ex:author ex:shelley` now also gives `ex:shelley ex:wrote ex:frankenstein`. You can query in either direction no matter which one was stored.
+The data only says *order → placedBy → customer*. The inverse gives you *customer → placedOrder → order* for free, so you can query in either direction:
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?person ?book WHERE { ?person ex:wrote ?book }
+SELECT ?customer ?order WHERE { ?customer retail:placedOrder ?order }
 ```
 
 ## owl:TransitiveProperty
 
-If A is in B and B is in C, then A is in C:
+If A is under B and B is under C, then A is under C:
 
 ```turtle
-ex:locatedIn a owl:TransitiveProperty .
-ex:shelfA      ex:locatedIn ex:readingRoom .
-ex:readingRoom ex:locatedIn ex:mainBuilding .
+retail:subCategoryOf a owl:TransitiveProperty .
+ex:SUB-LAPTOP retail:subCategoryOf ex:CAT-COMP .
+ex:CAT-COMP   retail:subCategoryOf ex:FAM-ELEC .
 ```
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
 
-SELECT ?place WHERE { ex:shelfA ex:locatedIn ?place }
+SELECT ?ancestor WHERE { ex:SUB-LAPTOP retail:subCategoryOf ?ancestor }
 ```
 
-Only one `locatedIn` triple is stored for `ex:shelfA`, but you get both places.
+Only one `subCategoryOf` triple is stored for Laptops, but you get both Computers and Electronics.
 
-## owl:SymmetricProperty
+## owl:propertyChainAxiom: shortcuts through the graph
 
-If A is related to B, then B is related to A:
+Remember the `CONSTRUCT` you wrote for `retail:purchased`? The ontology states it once, as a **chain**:
 
 ```turtle
-ex:relatedTo a owl:SymmetricProperty .
-ex:frankenstein ex:relatedTo ex:dracula .
+retail:purchased owl:propertyChainAxiom
+    ( retail:placedOrder retail:hasLine retail:forProduct ) .
 ```
 
-Other characteristics include `owl:ReflexiveProperty`, `owl:AsymmetricProperty`, and `owl:FunctionalProperty`, which you'll meet soon.
+*If a customer placed an order that has a line for a product, the customer purchased that product.* Notice it relies on `placedOrder`, which itself comes from the inverse.
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?customer ?product WHERE { ?customer retail:purchased ?product }
+```
+
+Other characteristics include `owl:SymmetricProperty`, `owl:AsymmetricProperty`, `owl:ReflexiveProperty` and `owl:FunctionalProperty`, which you'll meet soon.
 
 > Switch Reasoning to **Off** and run the queries again to see which answers depended on inference.
 
 ## Exercise
 
-Add **one triple** declaring `ex:hasPart` as the **inverse** of `ex:locatedIn`. Then the reasoner can work out that `ex:mainBuilding ex:hasPart ex:shelfA`. That takes two steps, transitivity *and* inverse, even though no such triple is stored.
+Add **one triple** declaring `retail:hasSubCategory` as the **inverse** of `retail:subCategoryOf`. Then the reasoner can work out that `ex:FAM-ELEC retail:hasSubCategory ex:SUB-LAPTOP`. That takes two steps, transitivity *and* inverse, even though no such triple is stored.
+
+(`retail:hasSubCategory` isn't in the original ontology; you're extending it.)
 
 ```turtle data
-@prefix ex:  <http://example.org/library#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
 
 # ---- Schema ----
-ex:author    a owl:ObjectProperty .
-ex:wrote     a owl:ObjectProperty ; owl:inverseOf ex:author .
-ex:locatedIn a owl:ObjectProperty , owl:TransitiveProperty .
-ex:hasPart   a owl:ObjectProperty .
-ex:relatedTo a owl:ObjectProperty , owl:SymmetricProperty .
+retail:placedBy    a owl:ObjectProperty ; owl:inverseOf retail:placedOrder .
+retail:placedOrder a owl:ObjectProperty .
+retail:subCategoryOf  a owl:ObjectProperty , owl:TransitiveProperty .
+retail:hasSubCategory a owl:ObjectProperty .
+retail:purchased   a owl:ObjectProperty ;
+    owl:propertyChainAxiom ( retail:placedOrder retail:hasLine retail:forProduct ) .
 
 # ---- Data ----
-ex:frankenstein ex:author ex:shelley .
-ex:dracula      ex:author ex:stoker .
-ex:frankenstein ex:relatedTo ex:dracula .
+ex:SUB-LAPTOP retail:subCategoryOf ex:CAT-COMP .
+ex:SUB-KEYBD  retail:subCategoryOf ex:CAT-COMP .
+ex:CAT-COMP   retail:subCategoryOf ex:FAM-ELEC .
+ex:SUB-HEADPH retail:subCategoryOf ex:CAT-AUDIO .
+ex:CAT-AUDIO  retail:subCategoryOf ex:FAM-ELEC .
 
-ex:shelfA      ex:locatedIn ex:readingRoom .
-ex:shelfB      ex:locatedIn ex:readingRoom .
-ex:readingRoom ex:locatedIn ex:mainBuilding .
-ex:frankenstein ex:locatedIn ex:shelfA .
+ex:ORD-0001 retail:placedBy ex:C1 ; retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .
+ex:ORD-0002 retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0002-1 .
+ex:ORD-0001-1 retail:forProduct ex:PRD-0001 .
+ex:ORD-0001-2 retail:forProduct ex:PRD-0003 .
+ex:ORD-0002-1 retail:forProduct ex:PRD-0004 .
 ```
 
 ```sparql query
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?whole ?part
-WHERE { ?whole ex:hasPart ?part }
+SELECT ?parent ?child
+WHERE { ?parent retail:hasSubCategory ?child }
 ```
 
 ```sparql check
-PREFIX ex:  <http://example.org/library#>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+PREFIX owl:    <http://www.w3.org/2002/07/owl#>
 ASK {
-  { ex:hasPart owl:inverseOf ex:locatedIn } UNION { ex:locatedIn owl:inverseOf ex:hasPart }
-  ex:mainBuilding ex:hasPart ex:shelfA .
+  { retail:hasSubCategory owl:inverseOf retail:subCategoryOf } UNION { retail:subCategoryOf owl:inverseOf retail:hasSubCategory }
+  ex:FAM-ELEC retail:hasSubCategory ex:SUB-LAPTOP .
 }
 ```
 
 ```turtle solution-data
-@prefix ex:  <http://example.org/library#> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
 
 # ---- Schema ----
-ex:author    a owl:ObjectProperty .
-ex:wrote     a owl:ObjectProperty ; owl:inverseOf ex:author .
-ex:locatedIn a owl:ObjectProperty , owl:TransitiveProperty .
-ex:hasPart   a owl:ObjectProperty ; owl:inverseOf ex:locatedIn .
-ex:relatedTo a owl:ObjectProperty , owl:SymmetricProperty .
+retail:placedBy    a owl:ObjectProperty ; owl:inverseOf retail:placedOrder .
+retail:placedOrder a owl:ObjectProperty .
+retail:subCategoryOf  a owl:ObjectProperty , owl:TransitiveProperty .
+retail:hasSubCategory a owl:ObjectProperty ; owl:inverseOf retail:subCategoryOf .
+retail:purchased   a owl:ObjectProperty ;
+    owl:propertyChainAxiom ( retail:placedOrder retail:hasLine retail:forProduct ) .
 
 # ---- Data ----
-ex:frankenstein ex:author ex:shelley .
-ex:dracula      ex:author ex:stoker .
-ex:frankenstein ex:relatedTo ex:dracula .
+ex:SUB-LAPTOP retail:subCategoryOf ex:CAT-COMP .
+ex:SUB-KEYBD  retail:subCategoryOf ex:CAT-COMP .
+ex:CAT-COMP   retail:subCategoryOf ex:FAM-ELEC .
+ex:SUB-HEADPH retail:subCategoryOf ex:CAT-AUDIO .
+ex:CAT-AUDIO  retail:subCategoryOf ex:FAM-ELEC .
 
-ex:shelfA      ex:locatedIn ex:readingRoom .
-ex:shelfB      ex:locatedIn ex:readingRoom .
-ex:readingRoom ex:locatedIn ex:mainBuilding .
-ex:frankenstein ex:locatedIn ex:shelfA .
+ex:ORD-0001 retail:placedBy ex:C1 ; retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .
+ex:ORD-0002 retail:placedBy ex:C2 ; retail:hasLine ex:ORD-0002-1 .
+ex:ORD-0001-1 retail:forProduct ex:PRD-0001 .
+ex:ORD-0001-2 retail:forProduct ex:PRD-0003 .
+ex:ORD-0002-1 retail:forProduct ex:PRD-0004 .
 ```

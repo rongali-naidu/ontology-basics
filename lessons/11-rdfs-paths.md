@@ -6,45 +6,46 @@ reasoning: none
 
 # Documenting a vocabulary, and querying it without a reasoner
 
-## Labels and comments
+## Labels and definitions
 
-A good vocabulary is readable by **people** too. RDFS gives you annotation properties:
+A good vocabulary is readable by **people** too. Every class and property in the retail ontology carries annotations:
 
 | Property | Use |
 |---|---|
 | `rdfs:label` | a human-readable name, often in several languages |
-| `rdfs:comment` | a description or definition |
+| `skos:definition` / `rdfs:comment` | a description or definition |
 | `rdfs:seeAlso` | a link to more information |
 | `rdfs:isDefinedBy` | the vocabulary a term belongs to |
 
 ```sparql
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-SELECT ?class ?label ?comment
+SELECT ?term ?label ?definition
 WHERE {
-  ?class a rdfs:Class ; rdfs:label ?label .
-  OPTIONAL { ?class rdfs:comment ?comment }
+  ?term rdfs:label ?label .
+  OPTIONAL { ?term skos:definition ?definition }
   FILTER(LANG(?label) = "en")
 }
 ```
 
-Change `"en"` to `"es"` to get the Spanish labels.
+Change `"en"` to `"es"` to get the Spanish labels. (The original ontology is English-only; the Spanish ones were added for this lesson.)
 
 ## Reasoning with property paths
 
-Many databases don't run a reasoner. You can still get the *subclass* inference by writing it into the query with a property path:
+Many databases don't run a reasoner. You can still get *subclass* inference by writing it into the query with a property path:
 
 ```sparql
-PREFIX ex:   <http://example.org/library#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX rdfs:   <http://www.w3.org/2000/01/rdf-schema#>
 
-SELECT ?thing
-WHERE { ?thing a/rdfs:subClassOf* ex:Publication }
+SELECT ?thing ?name
+WHERE { ?thing a/rdfs:subClassOf* retail:Category ; retail:name ?name }
 ```
 
-Read `a/rdfs:subClassOf*` as: *"has a type, which is the class itself or any number of `subClassOf` steps below it."* The `*` includes **zero** steps, so things typed directly as `ex:Publication` match too.
+Read `a/rdfs:subClassOf*` as: *"has a type, which is the class itself or any number of `subClassOf` steps below it."* The `*` includes **zero** steps, so things typed directly as `retail:Category` would match too.
 
-Reasoning is **Off** on this page, and the query still finds everything.
+Reasoning is **Off** on this page, and the query still finds every family, category and sub-category.
 
 | Approach | Pros | Cons |
 |---|---|---|
@@ -53,47 +54,59 @@ Reasoning is **Off** on this page, and the query still finds everything.
 
 ## Exercise
 
-With reasoning **off**, list every **`ex:Book`** (including novels and graphic novels) together with its **English label**. Return `?thing ?label`.
+With reasoning **off**, list every **`retail:Party`** (premium customers included) with its **`retail:name`**. Return `?party ?name`.
 
 ```turtle data
-@prefix ex:   <http://example.org/library#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
 
-ex:Publication  a rdfs:Class ; rdfs:label "Publication"@en , "Publicación"@es .
-ex:Book         a rdfs:Class ; rdfs:subClassOf ex:Publication ;
-                rdfs:label "Book"@en , "Libro"@es ;
-                rdfs:comment "A bound, non-periodical publication."@en .
-ex:Novel        a rdfs:Class ; rdfs:subClassOf ex:Book ;
-                rdfs:label "Novel"@en , "Novela"@es ;
-                rdfs:comment "A long work of narrative fiction."@en .
-ex:GraphicNovel a rdfs:Class ; rdfs:subClassOf ex:Novel ;
-                rdfs:label "Graphic novel"@en , "Novela gráfica"@es .
-ex:Magazine     a rdfs:Class ; rdfs:subClassOf ex:Publication ;
-                rdfs:label "Magazine"@en , "Revista"@es .
+# ---- Schema, with labels ----
+retail:Party a owl:Class ;
+    rdfs:label "Party"@en , "Parte"@es ;
+    skos:definition "Any person or organization that takes part in a retail transaction."@en .
+retail:Customer a owl:Class ; rdfs:subClassOf retail:Party ;
+    rdfs:label "Customer"@en , "Cliente"@es ;
+    skos:definition "A person with an account who can place orders and write reviews."@en .
+retail:PremiumCustomer a owl:Class ; rdfs:subClassOf retail:Customer ;
+    rdfs:label "Premium customer"@en , "Cliente prémium"@es ;
+    skos:definition "A customer with a paid membership (free shipping, etc.)."@en .
+retail:Category a owl:Class ; rdfs:subClassOf skos:Concept ;
+    rdfs:label "Merchandise category"@en , "Categoría de mercancía"@es .
+retail:ProductFamily a owl:Class ; rdfs:subClassOf retail:Category ;
+    rdfs:label "Product family"@en , "Familia de productos"@es .
+retail:ProductCategory a owl:Class ; rdfs:subClassOf retail:Category ;
+    rdfs:label "Product category"@en , "Categoría de producto"@es .
+retail:SubCategory a owl:Class ; rdfs:subClassOf retail:Category ;
+    rdfs:label "Sub-category"@en , "Subcategoría"@es .
 
-ex:frankenstein a ex:Novel ;        rdfs:label "Frankenstein"@en .
-ex:watchmen     a ex:GraphicNovel ; rdfs:label "Watchmen"@en .
-ex:cookbook     a ex:Book ;         rdfs:label "Victorian Cookery"@en , "Cocina victoriana"@es .
-ex:natGeo       a ex:Magazine ;     rdfs:label "National Geographic"@en .
-ex:almanac      a ex:Publication ;  rdfs:label "Farmer's Almanac"@en .
+# ---- Instances ----
+ex:C1 a retail:PremiumCustomer ; retail:name "Naidu Random1" .
+ex:C2 a retail:Customer        ; retail:name "Bob Random2" .
+ex:C3 a retail:PremiumCustomer ; retail:name "Carol Random3" .
+
+ex:FAM-ELEC   a retail:ProductFamily   ; retail:name "Electronics" .
+ex:FAM-MEDIA  a retail:ProductFamily   ; retail:name "Media" .
+ex:CAT-COMP   a retail:ProductCategory ; retail:name "Computers" .
+ex:CAT-BOOKS  a retail:ProductCategory ; retail:name "Books" .
+ex:SUB-LAPTOP a retail:SubCategory     ; retail:name "Laptops" .
+ex:SUB-PRINTB a retail:SubCategory     ; retail:name "Print Books" .
 ```
 
 ```sparql query
-PREFIX ex:   <http://example.org/library#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX rdfs:   <http://www.w3.org/2000/01/rdf-schema#>
 
-SELECT ?thing
-WHERE { ?thing a/rdfs:subClassOf* ex:Publication }
+SELECT ?thing ?name
+WHERE { ?thing a/rdfs:subClassOf* retail:Category ; retail:name ?name }
 ```
 
 ```sparql solution
-PREFIX ex:   <http://example.org/library#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX rdfs:   <http://www.w3.org/2000/01/rdf-schema#>
 
-SELECT ?thing ?label
-WHERE {
-  ?thing a/rdfs:subClassOf* ex:Book ;
-         rdfs:label ?label .
-  FILTER(LANG(?label) = "en")
-}
+SELECT ?party ?name
+WHERE { ?party a/rdfs:subClassOf* retail:Party ; retail:name ?name }
 ```

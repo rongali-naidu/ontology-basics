@@ -46,7 +46,10 @@ export const RULES = {
     { name: 'cls-svf2 — someValuesFrom owl:Thing ⇒ membership', sparql: 'INSERT { ?x a ?c } WHERE { ?c owl:someValuesFrom owl:Thing ; owl:onProperty ?p . ?x ?p ?y }' },
     { name: 'cls-avf — allValuesFrom types the values', sparql: 'INSERT { ?y a ?d } WHERE { ?c owl:allValuesFrom ?d ; owl:onProperty ?p . ?x a ?c ; ?p ?y FILTER(!isLiteral(?y)) }' },
     { name: 'cls-int2 — intersectionOf ⇒ member of each part', sparql: 'INSERT { ?x a ?ci } WHERE { ?c owl:intersectionOf ?l . ?l rdf:rest*/rdf:first ?ci . ?x a ?c }' },
-    { name: 'cls-uni — member of a union part ⇒ member of the union', sparql: 'INSERT { ?x a ?c } WHERE { ?c owl:unionOf ?l . ?l rdf:rest*/rdf:first ?ci . ?x a ?ci }' }
+    { name: 'cls-uni — member of a union part ⇒ member of the union', sparql: 'INSERT { ?x a ?c } WHERE { ?c owl:unionOf ?l . ?l rdf:rest*/rdf:first ?ci . ?x a ?ci }' },
+    { name: 'cls-int1 — member of every part ⇒ member of the intersection', sparql: 'INSERT { ?x a ?c } WHERE { ?c owl:intersectionOf ?l . ?l rdf:first ?c1 . ?x a ?c1 . FILTER NOT EXISTS { ?l rdf:rest*/rdf:first ?ci . FILTER NOT EXISTS { ?x a ?ci } } }' },
+    { name: 'prp-spo2 — propertyChainAxiom (chain of 2)', sparql: 'INSERT { ?x ?p ?z } WHERE { ?p owl:propertyChainAxiom ?l . ?l rdf:first ?p1 ; rdf:rest ?r1 . ?r1 rdf:first ?p2 ; rdf:rest rdf:nil . ?x ?p1 ?y . ?y ?p2 ?z }' },
+    { name: 'prp-spo2 — propertyChainAxiom (chain of 3)', sparql: 'INSERT { ?x ?p ?z } WHERE { ?p owl:propertyChainAxiom ?l . ?l rdf:first ?p1 ; rdf:rest ?r1 . ?r1 rdf:first ?p2 ; rdf:rest ?r2 . ?r2 rdf:first ?p3 ; rdf:rest rdf:nil . ?x ?p1 ?y1 . ?y1 ?p2 ?y2 . ?y2 ?p3 ?z }' }
   ]
 }
 
@@ -57,6 +60,10 @@ const CLASHES = [
      BIND(CONCAT("is a member of two disjoint classes: ", STR(?a), " and ", STR(?b)) AS ?msg) }`,
   `SELECT ?x ?msg WHERE { ?x owl:sameAs ?y . { ?x owl:differentFrom ?y } UNION { ?y owl:differentFrom ?x }
      BIND(CONCAT("is declared both sameAs and differentFrom ", STR(?y)) AS ?msg) }`,
+  `SELECT DISTINCT ?x ?msg WHERE { ?d a owl:AllDisjointClasses ; owl:members ?l .
+     ?l rdf:rest*/rdf:first ?a . ?l rdf:rest*/rdf:first ?b . FILTER(STR(?a) < STR(?b))
+     ?x a ?a , ?b .
+     BIND(CONCAT("is a member of two disjoint classes: ", STR(?a), " and ", STR(?b)) AS ?msg) }`,
   `SELECT ?x ?msg WHERE { ?x a owl:Nothing BIND("is a member of owl:Nothing (an unsatisfiable class)" AS ?msg) }`
 ]
 

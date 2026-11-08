@@ -11,81 +11,85 @@ Properties can be described too.
 
 ## rdfs:subPropertyOf
 
+The retail ontology maps its own properties onto schema.org:
+
 ```turtle
-ex:author      rdfs:subPropertyOf ex:contributor .
-ex:illustrator rdfs:subPropertyOf ex:contributor .
+retail:name rdfs:subPropertyOf schema:name .
+retail:sku  rdfs:subPropertyOf schema:sku .
 ```
 
-If someone is the author, they are also a contributor (rule **rdfs7**). One query on `ex:contributor` now finds authors *and* illustrators.
+If something has a `retail:name`, it also has a `schema:name` (rule **rdfs7**). A tool that only knows schema.org can now read your data.
 
 ## rdfs:domain and rdfs:range
 
 ```turtle
-ex:author rdfs:domain ex:Book ;     # the subject of ex:author is a Book
-          rdfs:range  ex:Person .   # the object of ex:author is a Person
+retail:placedBy rdfs:domain retail:Order ;      # the subject of placedBy is an Order
+                rdfs:range  retail:Customer .   # the object is a Customer
+retail:email    rdfs:domain retail:Customer .
 ```
 
 Here's the surprise for beginners: **domain and range are not checks, they are inference rules.** They don't reject "bad" data. They *add types*:
 
 ```
-IF ?x ex:author ?y   THEN   ?x a ex:Book   AND   ?y a ex:Person
+IF ?x retail:placedBy ?y   THEN   ?x a retail:Order   AND   ?y a retail:Customer
 ```
 
-Look at the last line of the data. Someone made a mistake and wrote that the *person* `ex:shelley` has author `ex:frankenstein`. Run this with RDFS on:
+So `ex:ORD-0001` becomes an Order and `ex:C1` a Customer, even though neither is typed in the data. That's useful.
+
+Now look at the last line of the data. Someone recorded a **support email for a brand** using `retail:email`. Run this with RDFS on:
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX ex: <https://example.org/retail/data/>
 
 SELECT ?x ?type
-WHERE { VALUES ?x { ex:shelley ex:frankenstein } ?x a ?type }
+WHERE { VALUES ?x { ex:C1 ex:BRAND-ExampleTech } ?x a ?type }
 ORDER BY ?x
 ```
 
-The reasoner happily concludes that Mary Shelley is a **Book** and Frankenstein is a **Person**. RDFS never complains. To *catch* mistakes like this you need OWL disjointness (coming soon) or SHACL validation (later).
+The reasoner happily concludes that the **brand ExampleTech is a Customer**, because `retail:email` has domain `retail:Customer`. RDFS never complains. To *catch* mistakes like this you need OWL disjointness (coming soon) or SHACL validation (later).
 
 > **Rule of thumb:** use `rdfs:domain`/`rdfs:range` to *document intent and add types*. Use SHACL to *enforce* constraints.
 
 ## Exercise
 
-With RDFS reasoning on, write a query that lists **everyone who contributed to `ex:frankenstein`** by asking only for `ex:contributor`. Return `?who`. Frankenstein has an author and an illustrator, so you should get both.
+With RDFS reasoning on, write a query that lists **every thing and its `schema:name`**. Return `?thing ?name`. Nothing in the data uses `schema:name` directly, so every row comes from inference.
 
-*Bonus:* delete the mistaken last line, run the type query again, and see how the strange inferences disappear.
+*Bonus:* delete the mistaken brand email, run the type query again, and see the strange inference disappear.
 
 ```turtle data
-@prefix ex:   <http://example.org/library#> .
-@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <https://schema.org/> .
 
 # ---- Schema ----
-ex:contributor a rdf:Property .
-ex:author      rdfs:subPropertyOf ex:contributor ;
-               rdfs:domain ex:Book ;
-               rdfs:range  ex:Person .
-ex:illustrator rdfs:subPropertyOf ex:contributor ;
-               rdfs:range  ex:Person .
+retail:name     rdfs:subPropertyOf schema:name .
+retail:sku      rdfs:subPropertyOf schema:sku .
+retail:placedBy rdfs:domain retail:Order ; rdfs:range retail:Customer .
+retail:brand    rdfs:domain retail:Product ; rdfs:range retail:Brand .
+retail:email    rdfs:domain retail:Customer .
 
-# ---- Data ----
-ex:frankenstein ex:title "Frankenstein" ;
-                ex:author ex:shelley ;
-                ex:illustrator ex:holst .
-ex:shelley ex:name "Mary Shelley" .
-ex:holst   ex:name "Theodor von Holst" .
+# ---- Data (deliberately without rdf:type) ----
+ex:ORD-0001 retail:placedBy ex:C1 .
+ex:C1       retail:name "Naidu Random1" ; retail:email "naidu@example.com" .
+ex:PRD-0001 retail:name "Laptop Pro 14" ; retail:sku "LAP-PRO-14" ; retail:brand ex:BRAND-ExampleTech .
+ex:BRAND-ExampleTech retail:name "ExampleTech" .
 
-# A mistake! Subject and object are swapped:
-ex:shelley ex:author ex:frankenstein .
+# A modelling mistake: retail:email is meant for customers only
+ex:BRAND-ExampleTech retail:email "support@exampletech.example" .
 ```
 
 ```sparql query
-PREFIX ex: <http://example.org/library#>
+PREFIX ex: <https://example.org/retail/data/>
 
 SELECT ?x ?type
-WHERE { VALUES ?x { ex:shelley ex:frankenstein } ?x a ?type }
+WHERE { VALUES ?x { ex:C1 ex:BRAND-ExampleTech } ?x a ?type }
 ORDER BY ?x
 ```
 
 ```sparql solution
-PREFIX ex: <http://example.org/library#>
+PREFIX schema: <https://schema.org/>
 
-SELECT ?who
-WHERE { ex:frankenstein ex:contributor ?who }
+SELECT ?thing ?name
+WHERE { ?thing schema:name ?name }
 ```

@@ -20,23 +20,25 @@ Everything runs client-side. There is no server and nothing to install.
 
 ## Curriculum
 
+The whole course uses one running example: a small **online store** (customers, orders, products, brands, a product hierarchy, reviews). It's taken from the retail example in [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs/tree/main/examples/retail), with the same IRIs, ontology, taxonomies, glossary, SHACL shapes and data, so learners can continue straight into the full version.
+
 | # | Section | Lessons |
 |---|---|---|
 | 0 | Start | Welcome and how the playground works |
-| 1–2 | Foundations | Triples & IRIs · Turtle syntax |
-| 3–8 | SPARQL basics | SELECT · FILTER/OPTIONAL · ORDER/LIMIT/DISTINCT · aggregates · property paths/UNION/BIND · ASK/CONSTRUCT |
-| 9–11 | RDFS | Classes & subclasses · properties, domain & range · labels and reasoning with paths |
-| 12–16 | OWL | Open world · inverse/transitive/symmetric · sameAs & equivalence · functional/disjoint/inconsistency · restrictions |
-| 17–18 | SKOS | Concepts, schemes & labels · broader/narrower & mappings |
-| 19–22 | SHACL | First shape · value constraints · links between nodes · SHACL vs OWL |
-| 23 | Wrap-up | Capstone & next steps |
+| 1–2 | Foundations | Triples & IRIs (ontology vs data namespaces) · Turtle syntax |
+| 3–8 | SPARQL basics | SELECT · FILTER/OPTIONAL · ORDER/LIMIT/DISTINCT · revenue with aggregates · property paths/UNION/BIND · ASK/CONSTRUCT |
+| 9–11 | RDFS | Customer/Party hierarchy & schema.org alignment · domain & range · labels and reasoning with paths |
+| 12–16 | OWL | Open world · inverse/transitive/property chains · sameAs with a CRM · AllDisjointClasses & inconsistency · defined classes (DeliveredOrder, NonRevenueOrder, LaptopBuyer) |
+| 17–18 | SKOS | The business glossary (GMV → revenue) · merchandise hierarchy vs Google Product Taxonomy |
+| 19–22 | SHACL | Product shape · value constraints · hierarchy shapes · SHACL vs OWL |
+| 23 | Wrap-up | Capstone: revenue per product family & next steps |
 
 ## How it works
 
 | Piece | Library |
 |---|---|
 | Triple store + SPARQL 1.1 | [Oxigraph](https://github.com/oxigraph/oxigraph) compiled to WebAssembly |
-| Reasoning | SPARQL `INSERT` rules run to a fixpoint (RDFS + a teaching subset of OWL 2 RL); see `src/engine.js` |
+| Reasoning | SPARQL `INSERT` rules run to a fixpoint: RDFS plus a teaching subset of OWL 2 RL (inverse, transitive, symmetric, functional, sameAs, equivalence, hasValue/someValuesFrom/allValuesFrom, intersection/union, property chains, disjointness checks); see `src/engine.js` |
 | SHACL validation | [shacl-engine](https://github.com/rdf-ext/shacl-engine) |
 | Editors | CodeMirror 6 |
 | Build | Vite, deployed by GitHub Actions to GitHub Pages |
@@ -92,5 +94,8 @@ npm run dev
 Build with `npm run build`; the static site is written to `dist/`.
 
 ## License
+
+The retail ontology, taxonomies, glossary and data come from [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs).
+
 
 Apache License 2.0 (see `LICENSE`)

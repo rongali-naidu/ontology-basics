@@ -7,26 +7,28 @@ check_reasoning: rdfs
 
 # RDFS: your first vocabulary
 
-So far `ex:Book` has just been a name. **RDF Schema (RDFS)** lets us say what our terms *mean*, so a machine can draw conclusions from them.
+So far `retail:Customer` has just been a name. **RDF Schema (RDFS)** lets us say what our terms *mean*, so a machine can draw conclusions from them.
 
 The two most important words are:
 
-- `rdfs:Class`: "this is a category of things"
+- `rdfs:Class` / `owl:Class`: "this is a category of things"
 - `rdfs:subClassOf`: "every member of A is also a member of B"
 
+From the retail ontology:
+
 ```turtle
-ex:Novel        rdfs:subClassOf ex:Book .
-ex:Book         rdfs:subClassOf ex:Publication .
+retail:PremiumCustomer rdfs:subClassOf retail:Customer .
+retail:Customer        rdfs:subClassOf retail:Party .
 ```
 
 ## Inference: facts you never wrote
 
-The data says `ex:frankenstein a ex:Novel`. It never says Frankenstein is a `Publication`. But it *must* be: a novel is a book, and a book is a publication.
+The data says `ex:C1 a retail:PremiumCustomer`. It never says C1 is a `Customer`, let alone a `Party`. But it *must* be: a premium customer is a customer, and a customer is a party.
 
-1. Run the query. It asks for all `ex:Publication`s and finds **nothing**, because SPARQL only sees triples that are actually stored.
+1. Run the query. It asks for all `retail:Party` members and finds **nothing**, because SPARQL only sees triples that are actually stored.
 2. Switch **Reasoning** (above the data) to **RDFS** and run again.
 
-Now every book, novel, graphic novel and magazine appears. The reasoner **inferred** new triples. Click the "**N inferred**" link under the data to see each one.
+Now all three customers appear, plus the brand's owner `ex:ExampleCorp`. The reasoner **inferred** new triples. Click the "**N inferred**" link under the data to see each one.
 
 The key rule is tiny (**rdfs9**):
 
@@ -35,62 +37,87 @@ IF   ?x a ?C   AND   ?C rdfs:subClassOf ?D
 THEN ?x a ?D
 ```
 
-`rdfs:subClassOf` is also transitive (**rdfs11**): a GraphicNovel is a Novel, a Novel is a Book, so a GraphicNovel is a Book.
+`rdfs:subClassOf` is also transitive (**rdfs11**): PremiumCustomer ⊑ Customer ⊑ Party, so PremiumCustomer ⊑ Party.
+
+The same idea organises the product hierarchy: `retail:ProductFamily`, `retail:ProductCategory` and `retail:SubCategory` are all subclasses of `retail:Category`, which is itself a subclass of `skos:Concept`. Try asking for `?x a retail:Category`.
 
 > **Mental model:** an ontology is *data about your data*. The schema (classes, properties) and the instances live in the same graph and are queried in the same way.
 
 ## Exercise
 
-The library also has a magazine, `ex:natGeo`. Add **one schema triple** so that `ex:Magazine` is a subclass of a new class **`ex:Periodical`**. With RDFS reasoning on, `ex:natGeo` should then be inferred to be an `ex:Periodical`.
+The retail ontology aligns its classes with **schema.org**, so search engines and other tools understand them. Add **one schema triple** saying `retail:Customer` is a subclass of **`schema:Person`**. With RDFS reasoning on, the premium customer `ex:C1` should then be inferred to be a `schema:Person`.
 
-Don't type `ex:natGeo a ex:Periodical` yourself. Let the reasoner do it!
+Don't type `ex:C1 a schema:Person` yourself. Let the reasoner do it!
 
 ```turtle data
-@prefix ex:   <http://example.org/library#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <https://schema.org/> .
 
-# ---- Schema ----
-ex:Publication  a rdfs:Class .
-ex:Book         a rdfs:Class ; rdfs:subClassOf ex:Publication .
-ex:Novel        a rdfs:Class ; rdfs:subClassOf ex:Book .
-ex:GraphicNovel a rdfs:Class ; rdfs:subClassOf ex:Novel .
-ex:Magazine     a rdfs:Class ; rdfs:subClassOf ex:Publication .
+# ---- Schema (TBox) ----
+retail:Party           a owl:Class .
+retail:Customer        a owl:Class ; rdfs:subClassOf retail:Party .
+retail:PremiumCustomer a owl:Class ; rdfs:subClassOf retail:Customer .
+retail:Organization    a owl:Class ; rdfs:subClassOf retail:Party .   # added for this lesson
+retail:Category        a owl:Class ; rdfs:subClassOf skos:Concept .
+retail:ProductFamily   a owl:Class ; rdfs:subClassOf retail:Category .
+retail:ProductCategory a owl:Class ; rdfs:subClassOf retail:Category .
+retail:SubCategory     a owl:Class ; rdfs:subClassOf retail:Category .
 
-# ---- Instances ----
-ex:frankenstein a ex:Novel ;        ex:title "Frankenstein" .
-ex:watchmen     a ex:GraphicNovel ; ex:title "Watchmen" .
-ex:cookbook     a ex:Book ;         ex:title "Victorian Cookery" .
-ex:natGeo       a ex:Magazine ;     ex:title "National Geographic" .
+# ---- Instances (ABox) ----
+ex:C1 a retail:PremiumCustomer ; retail:name "Naidu Random1" .
+ex:C2 a retail:Customer        ; retail:name "Bob Random2" .
+ex:C3 a retail:PremiumCustomer ; retail:name "Carol Random3" .
+ex:ExampleCorp a retail:Organization ; retail:name "Example Corp" .
+
+ex:FAM-ELEC   a retail:ProductFamily   ; retail:name "Electronics" .
+ex:CAT-COMP   a retail:ProductCategory ; retail:name "Computers" .
+ex:SUB-LAPTOP a retail:SubCategory     ; retail:name "Laptops" .
 ```
 
 ```sparql query
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?thing ?title
-WHERE { ?thing a ex:Publication ; ex:title ?title }
+SELECT ?party ?name
+WHERE { ?party a retail:Party ; retail:name ?name }
 ```
 
 ```sparql check
-PREFIX ex:   <http://example.org/library#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-ASK { ex:Magazine rdfs:subClassOf ex:Periodical . ex:natGeo a ex:Periodical }
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+PREFIX rdfs:   <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <https://schema.org/>
+ASK { retail:Customer rdfs:subClassOf schema:Person . ex:C1 a schema:Person }
 ```
 
 ```turtle solution-data
-@prefix ex:   <http://example.org/library#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <https://schema.org/> .
 
-# ---- Schema ----
-ex:Publication  a rdfs:Class .
-ex:Book         a rdfs:Class ; rdfs:subClassOf ex:Publication .
-ex:Novel        a rdfs:Class ; rdfs:subClassOf ex:Book .
-ex:GraphicNovel a rdfs:Class ; rdfs:subClassOf ex:Novel .
-ex:Magazine     a rdfs:Class ; rdfs:subClassOf ex:Publication .
-ex:Magazine     rdfs:subClassOf ex:Periodical .
+# ---- Schema (TBox) ----
+retail:Party           a owl:Class .
+retail:Customer        a owl:Class ; rdfs:subClassOf retail:Party , schema:Person .
+retail:PremiumCustomer a owl:Class ; rdfs:subClassOf retail:Customer .
+retail:Organization    a owl:Class ; rdfs:subClassOf retail:Party .   # added for this lesson
+retail:Category        a owl:Class ; rdfs:subClassOf skos:Concept .
+retail:ProductFamily   a owl:Class ; rdfs:subClassOf retail:Category .
+retail:ProductCategory a owl:Class ; rdfs:subClassOf retail:Category .
+retail:SubCategory     a owl:Class ; rdfs:subClassOf retail:Category .
 
-# ---- Instances ----
-ex:frankenstein a ex:Novel ;        ex:title "Frankenstein" .
-ex:watchmen     a ex:GraphicNovel ; ex:title "Watchmen" .
-ex:cookbook     a ex:Book ;         ex:title "Victorian Cookery" .
-ex:natGeo       a ex:Magazine ;     ex:title "National Geographic" .
+# ---- Instances (ABox) ----
+ex:C1 a retail:PremiumCustomer ; retail:name "Naidu Random1" .
+ex:C2 a retail:Customer        ; retail:name "Bob Random2" .
+ex:C3 a retail:PremiumCustomer ; retail:name "Carol Random3" .
+ex:ExampleCorp a retail:Organization ; retail:name "Example Corp" .
+
+ex:FAM-ELEC   a retail:ProductFamily   ; retail:name "Electronics" .
+ex:CAT-COMP   a retail:ProductCategory ; retail:name "Computers" .
+ex:SUB-LAPTOP a retail:SubCategory     ; retail:name "Laptops" .
 ```

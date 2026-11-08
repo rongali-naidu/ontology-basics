@@ -8,16 +8,24 @@ reasoning: none
 
 **OWL** (the Web Ontology Language) builds on RDFS and adds much richer meaning: equivalence, inverse and transitive properties, cardinality, disjointness and logical class definitions. An OWL ontology is still just RDF triples, so you query it with SPARQL like everything else.
 
-## The basic OWL vocabulary
+## The ontology header
+
+An OWL ontology describes itself. This is the start of the retail ontology:
 
 ```turtle
-ex:Book      a owl:Class .
-ex:Person    a owl:Class .
-ex:author    a owl:ObjectProperty ;     # links a thing to a thing
-             rdfs:domain ex:Book ; rdfs:range ex:Person .
-ex:title     a owl:DatatypeProperty ;   # links a thing to a literal value
-             rdfs:range xsd:string .
-ex:shelley   a owl:NamedIndividual , ex:Person .
+<https://example.org/retail/ontology> a owl:Ontology ;
+    owl:versionIRI  <https://example.org/retail/ontology/2.0.0> ;
+    owl:priorVersion <https://example.org/retail/ontology/1.0.0> ;
+    owl:versionInfo "2.0.0" ;
+    dcterms:title   "Retail Ordering Ontology"@en .
+```
+
+## Two kinds of property
+
+```turtle
+retail:placedBy  a owl:ObjectProperty .      # links a thing to a thing  (Order → Customer)
+retail:orderDate a owl:DatatypeProperty ;    # links a thing to a value  (Order → date)
+                 rdfs:range xsd:date .
 ```
 
 | Term | Meaning |
@@ -36,9 +44,9 @@ This idea trips up almost everyone coming from databases:
 > **Closed world** (databases, SPARQL over the data): *if a fact is not stored, it is false.*
 > **Open world** (OWL): *if a fact is not stored, it is simply **unknown**.*
 
-Bob has no email in our data. A database would say "Bob has no email". OWL says "we don't *know* Bob's email". Maybe he has one and nobody wrote it down.
+Order `ex:ORD-0004` has no ship date in our data. A database would say "it hasn't shipped". OWL says "we don't *know* its ship date". Maybe it shipped and nobody recorded it yet.
 
-So OWL **can't** tell you "find everyone without an email" or "every book must have an author", because missing data is never an error in OWL. SPARQL, on the other hand, works over exactly the triples it has, so it *can* answer the first question with `FILTER NOT EXISTS`. The second, a **constraint**, is what SHACL is for.
+So OWL **can't** tell you "find orders without a ship date" or "every order must have a date", because missing data is never an error in OWL. SPARQL, on the other hand, works over exactly the triples it has, so it *can* answer the first question with `FILTER NOT EXISTS`. The second, a **constraint**, is what SHACL is for.
 
 | Question | Tool |
 |---|---|
@@ -48,26 +56,32 @@ So OWL **can't** tell you "find everyone without an email" or "every book must h
 
 ## Exercise
 
-Using SPARQL's closed-world view, list the **names of all members who have no `ex:email`**. Return `?name`.
+Using SPARQL's closed-world view, list **every order that has no `retail:shipDate`**, with its status. Return `?order ?status`.
 
 ```turtle data
-@prefix ex:   <http://example.org/library#> .
-@prefix owl:  <http://www.w3.org/2002/07/owl#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix retail:  <https://example.org/retail/ontology#> .
+@prefix ex:      <https://example.org/retail/data/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
 
-ex:library a owl:Ontology ;
-    rdfs:label "Tiny library ontology" ;
-    owl:versionInfo "1.0" .
+<https://example.org/retail/ontology> a owl:Ontology ;
+    owl:versionIRI  <https://example.org/retail/ontology/2.0.0> ;
+    owl:versionInfo "2.0.0" ;
+    dcterms:title   "Retail Ordering Ontology"@en .
 
-ex:Member a owl:Class ; rdfs:label "Library member" .
-ex:name   a owl:DatatypeProperty ; rdfs:domain ex:Member ; rdfs:range xsd:string .
-ex:email  a owl:DatatypeProperty ; rdfs:domain ex:Member ; rdfs:range xsd:string .
+retail:Order     a owl:Class ; rdfs:label "Order"@en .
+retail:Customer  a owl:Class ; rdfs:label "Customer"@en .
+retail:placedBy  a owl:ObjectProperty   ; rdfs:domain retail:Order ; rdfs:range retail:Customer .
+retail:orderDate a owl:DatatypeProperty ; rdfs:domain retail:Order ; rdfs:range xsd:date .
+retail:shipDate  a owl:DatatypeProperty ; rdfs:domain retail:Order ; rdfs:range xsd:date .
+retail:status    a owl:DatatypeProperty ; rdfs:domain retail:Order .
 
-ex:alice a owl:NamedIndividual , ex:Member ; ex:name "Alice" ; ex:email "alice@example.org" .
-ex:bob   a owl:NamedIndividual , ex:Member ; ex:name "Bob" .
-ex:chen  a owl:NamedIndividual , ex:Member ; ex:name "Chen" ; ex:email "chen@example.org" .
-ex:dana  a owl:NamedIndividual , ex:Member ; ex:name "Dana" .
+ex:ORD-0001 a retail:Order ; retail:placedBy ex:C1 ; retail:orderDate "2026-09-01"^^xsd:date ; retail:shipDate "2026-09-02"^^xsd:date ; retail:status "DELIVERED" .
+ex:ORD-0002 a retail:Order ; retail:placedBy ex:C2 ; retail:orderDate "2026-09-05"^^xsd:date ; retail:shipDate "2026-09-07"^^xsd:date ; retail:status "SHIPPED" .
+ex:ORD-0004 a retail:Order ; retail:placedBy ex:C3 ; retail:orderDate "2026-10-02"^^xsd:date ; retail:status "PLACED" .
+ex:ORD-0005 a retail:Order ; retail:placedBy ex:C3 ; retail:orderDate "2026-10-05"^^xsd:date ; retail:status "CANCELLED" .
 ```
 
 ```sparql query
@@ -81,11 +95,11 @@ WHERE {
 ```
 
 ```sparql solution
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?name
+SELECT ?order ?status
 WHERE {
-  ?m a ex:Member ; ex:name ?name .
-  FILTER NOT EXISTS { ?m ex:email ?e }
+  ?order a retail:Order ; retail:status ?status .
+  FILTER NOT EXISTS { ?order retail:shipDate ?d }
 }
 ```

@@ -9,50 +9,56 @@ RDF (Resource Description Framework) describes the world with **triples**. Each 
 
 | subject | predicate | object |
 |---|---|---|
-| Frankenstein | was written by | Mary Shelley |
-| Mary Shelley | was born in | 1797 |
+| order ORD-0001 | was placed by | customer C1 |
+| customer C1 | has the name | "Naidu Random1" |
 
-Triples that share a subject or object join up into a **graph**. Here `ex:shelley` links the two facts:
+Triples that share a subject or object join up into a **graph**. Here `ex:C1` links the two facts:
 
 ```
-ex:frankenstein ──ex:author──▶ ex:shelley ──ex:born──▶ 1797
+ex:ORD-0001 ──retail:placedBy──▶ ex:C1 ──retail:name──▶ "Naidu Random1"
 ```
 
 ## IRIs name things
 
-To avoid confusing "Mary Shelley the author" with someone else of the same name, RDF names things with **IRIs**: web-style global identifiers.
+To avoid confusing *this* customer with any other customer of any other shop, RDF names things with **IRIs**: web-style global identifiers.
 
 ```
-<http://example.org/library#shelley>
+<https://example.org/retail/data/C1>
 ```
 
 Writing full IRIs is tiring, so we declare a **prefix** once and use short names after that:
 
 ```turtle
-@prefix ex: <http://example.org/library#> .
-# now ex:shelley means <http://example.org/library#shelley>
+@prefix ex:     <https://example.org/retail/data/> .        # the things: customers, orders…
+@prefix retail: <https://example.org/retail/ontology#> .    # the vocabulary: placedBy, name…
 ```
 
-Subjects and predicates are always IRIs (subjects can also be *blank nodes*, covered in the next lesson). Objects can be IRIs or **literals**: plain values such as `"Frankenstein"` or `1797`.
+Notice the two namespaces. That's a common pattern:
 
-> **Why IRIs?** Anyone can publish triples about `ex:shelley`, and when the graphs are merged the statements line up automatically. That makes RDF good for *linking* data.
+- `retail:` holds the **vocabulary**: classes like `retail:Order` and properties like `retail:placedBy`. This is the *ontology*.
+- `ex:` holds the **data**: the actual customers, orders and products.
+
+Subjects and predicates are always IRIs (subjects can also be *blank nodes*, covered in the next lesson). Objects can be IRIs or **literals**: plain values such as `"Naidu Random1"` or `1299.00`.
+
+> **Why IRIs?** The CRM system, the warehouse and the web shop can all publish triples about `ex:C1`, and when the graphs are merged the statements line up automatically. That makes RDF good for *integrating* data.
 
 ## Look at the data
 
-Each line in the Data panel ends with a full stop `.` and is exactly one triple. Run the query to list them all. Notice how the results table shows the short `ex:` names.
+Each line in the Data panel ends with a full stop `.` and is exactly one triple. Run the query to list them all. Notice how the results table shows the short prefixed names.
 
 ## Exercise
 
-Add a triple stating that **`ex:dracula`** has **`ex:author`** **`ex:stoker`**. Run the query to see it, then press **Check my answer**.
+Add a triple stating that **`ex:PRD-0002`** has **`retail:brand`** **`ex:BRAND-ExampleTech`**. Run the query to see it, then press **Check my answer**.
 
 ```turtle data
-@prefix ex: <http://example.org/library#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
 
-ex:frankenstein ex:author ex:shelley .
-ex:frankenstein ex:title  "Frankenstein" .
-ex:shelley      ex:name   "Mary Shelley" .
-ex:shelley      ex:born   1797 .
-ex:dracula      ex:title  "Dracula" .
+ex:ORD-0001 retail:placedBy ex:C1 .
+ex:C1       retail:name     "Naidu Random1" .
+ex:PRD-0001 retail:name     "Laptop Pro 14" .
+ex:PRD-0001 retail:brand    ex:BRAND-ExampleTech .
+ex:PRD-0002 retail:name     "Wireless Earbuds X" .
 ```
 
 ```sparql query
@@ -61,17 +67,19 @@ WHERE { ?subject ?predicate ?object }
 ```
 
 ```sparql check
-PREFIX ex: <http://example.org/library#>
-ASK { ex:dracula ex:author ex:stoker }
+PREFIX retail: <https://example.org/retail/ontology#>
+PREFIX ex:     <https://example.org/retail/data/>
+ASK { ex:PRD-0002 retail:brand ex:BRAND-ExampleTech }
 ```
 
 ```turtle solution-data
-@prefix ex: <http://example.org/library#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
 
-ex:frankenstein ex:author ex:shelley .
-ex:frankenstein ex:title  "Frankenstein" .
-ex:shelley      ex:name   "Mary Shelley" .
-ex:shelley      ex:born   1797 .
-ex:dracula      ex:title  "Dracula" .
-ex:dracula      ex:author ex:stoker .
+ex:ORD-0001 retail:placedBy ex:C1 .
+ex:C1       retail:name     "Naidu Random1" .
+ex:PRD-0001 retail:name     "Laptop Pro 14" .
+ex:PRD-0001 retail:brand    ex:BRAND-ExampleTech .
+ex:PRD-0002 retail:name     "Wireless Earbuds X" .
+ex:PRD-0002 retail:brand    ex:BRAND-ExampleTech .
 ```

@@ -5,112 +5,166 @@ section: SPARQL basics
 
 # Aggregates: COUNT, SUM, AVG, GROUP BY
 
-Aggregates turn many rows into one summary value.
+Aggregates turn many rows into one summary value. This page computes the store's most important number: **revenue**.
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT (COUNT(?b) AS ?books) (SUM(?pages) AS ?totalPages) (AVG(?pages) AS ?avg)
-WHERE { ?b a ex:Book ; ex:pages ?pages }
+SELECT (COUNT(?r) AS ?reviews) (AVG(?rating) AS ?avgRating) (MAX(?rating) AS ?best)
+WHERE { ?r a retail:Review ; retail:rating ?rating }
 ```
 
-`(expression AS ?name)` gives the computed column a name. Other aggregates are `MIN`, `MAX`, `SAMPLE` and `GROUP_CONCAT`.
+`(expression AS ?name)` gives the computed column a name. Other aggregates are `SUM`, `MIN`, `SAMPLE` and `GROUP_CONCAT`.
 
 ## GROUP BY: one summary per group
 
-How many books per genre?
+How many orders per status?
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?genre (COUNT(?b) AS ?n)
-WHERE { ?b a ex:Book ; ex:genre ?genre }
-GROUP BY ?genre
-ORDER BY DESC(?n)
+SELECT ?status (COUNT(?o) AS ?orders)
+WHERE { ?o a retail:Order ; retail:status ?status }
+GROUP BY ?status
+ORDER BY DESC(?orders)
 ```
 
 **Rule:** every variable you `SELECT` must either be in `GROUP BY` or be inside an aggregate.
+
+## Expressions inside aggregates
+
+A line's amount is quantity × price paid. Here are booked sales per order:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?order (SUM(?qty * ?price) AS ?amount)
+WHERE {
+  ?order retail:hasLine ?line .
+  ?line retail:quantity ?qty ; retail:unitPrice ?price .
+}
+GROUP BY ?order
+ORDER BY ?order
+```
 
 ## HAVING: filter the groups
 
 `FILTER` tests individual rows *before* grouping. `HAVING` tests the groups *after*:
 
 ```sparql
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?member (COUNT(?loan) AS ?loans)
-WHERE { ?loan ex:borrower ?member }
-GROUP BY ?member
-HAVING (COUNT(?loan) >= 2)
+SELECT ?customer (COUNT(?o) AS ?orders)
+WHERE { ?o retail:placedBy ?customer }
+GROUP BY ?customer
+HAVING (COUNT(?o) >= 2)
 ```
-
-## GROUP_CONCAT
-
-This gathers values into one string:
-
-```sparql
-PREFIX ex: <http://example.org/library#>
-
-SELECT ?name (GROUP_CONCAT(?title; separator=" | ") AS ?titles)
-WHERE { ?b ex:author/ex:name ?name ; ex:title ?title }
-GROUP BY ?name
-```
-
-(The `/` is a *property path*, covered in the next lesson.)
 
 ## Exercise
 
-For each **author name**, count their books, and keep only authors with **more than one** book. Return `?name` and the count (call it whatever you like).
+The business glossary defines **revenue** as *quantity × price paid, counting only orders that are **not** `"CANCELLED"` or `"RETURNED"`*.
+
+Compute revenue **per customer name**. Return `?name` and the revenue (call it what you like).
+
+You should find that Naidu Random1's revenue is **1498.97**.
 
 ```turtle data
-@prefix ex:  <http://example.org/library#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix retail: <https://example.org/retail/ontology#> .
+@prefix ex:     <https://example.org/retail/data/> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
 
-# ---- Books ----
-ex:frankenstein a ex:Book ; ex:title "Frankenstein" ;          ex:year 1818 ; ex:pages 280 ; ex:author ex:shelley ; ex:genre ex:Horror .
-ex:dracula      a ex:Book ; ex:title "Dracula" ;               ex:year 1897 ; ex:pages 418 ; ex:author ex:stoker  ; ex:genre ex:Horror .
-ex:pride        a ex:Book ; ex:title "Pride and Prejudice" ;   ex:year 1813 ; ex:pages 432 ; ex:author ex:austen  ; ex:genre ex:Romance .
-ex:emma         a ex:Book ; ex:title "Emma" ;                  ex:year 1815 ; ex:pages 474 ; ex:author ex:austen  ; ex:genre ex:Romance .
-ex:timeMachine  a ex:Book ; ex:title "The Time Machine" ;      ex:year 1895 ; ex:pages 118 ; ex:author ex:wells   ; ex:genre ex:SciFi .
-ex:warOfWorlds  a ex:Book ; ex:title "The War of the Worlds" ; ex:year 1898 ; ex:pages 287 ; ex:author ex:wells   ; ex:genre ex:SciFi .
-ex:mobyDick     a ex:Book ; ex:title "Moby-Dick" ;             ex:year 1851 ; ex:pages 635 ; ex:author ex:melville .
+# ---- Brands ----
+ex:BRAND-ExampleTech  a retail:Brand ; retail:name "ExampleTech" .
+ex:BRAND-ExamplePress a retail:Brand ; retail:name "ExamplePress" .
+ex:BRAND-ExampleHome  a retail:Brand ; retail:name "ExampleHome" .
 
-# ---- Authors ----
-ex:shelley  a ex:Author ; ex:name "Mary Shelley" ;    ex:born 1797 ; ex:country "UK" .
-ex:stoker   a ex:Author ; ex:name "Bram Stoker" ;     ex:born 1847 ; ex:country "Ireland" .
-ex:austen   a ex:Author ; ex:name "Jane Austen" ;     ex:born 1775 ; ex:country "UK" .
-ex:wells    a ex:Author ; ex:name "H. G. Wells" ;     ex:born 1866 ; ex:country "UK" .
-ex:melville a ex:Author ; ex:name "Herman Melville" ; ex:born 1819 ; ex:country "USA" .
+# ---- Merchandise hierarchy: family > category > sub-category ----
+ex:FAM-ELEC   a retail:ProductFamily   ; retail:name "Electronics" .
+ex:FAM-HOME   a retail:ProductFamily   ; retail:name "Home & Garden" .
+ex:FAM-MEDIA  a retail:ProductFamily   ; retail:name "Media" .
+ex:CAT-COMP   a retail:ProductCategory ; retail:name "Computers"      ; retail:subCategoryOf ex:FAM-ELEC .
+ex:CAT-AUDIO  a retail:ProductCategory ; retail:name "Audio"          ; retail:subCategoryOf ex:FAM-ELEC .
+ex:CAT-ACC    a retail:ProductCategory ; retail:name "Accessories"    ; retail:subCategoryOf ex:FAM-ELEC .
+ex:CAT-KITCH  a retail:ProductCategory ; retail:name "Kitchen"        ; retail:subCategoryOf ex:FAM-HOME .
+ex:CAT-BOOKS  a retail:ProductCategory ; retail:name "Books"          ; retail:subCategoryOf ex:FAM-MEDIA .
+ex:SUB-LAPTOP a retail:SubCategory     ; retail:name "Laptops"        ; retail:subCategoryOf ex:CAT-COMP .
+ex:SUB-KEYBD  a retail:SubCategory     ; retail:name "Keyboards"      ; retail:subCategoryOf ex:CAT-COMP .
+ex:SUB-HEADPH a retail:SubCategory     ; retail:name "Headphones"     ; retail:subCategoryOf ex:CAT-AUDIO .
+ex:SUB-CHARGE a retail:SubCategory     ; retail:name "Chargers"       ; retail:subCategoryOf ex:CAT-ACC .
+ex:SUB-KNIVES a retail:SubCategory     ; retail:name "Kitchen Knives" ; retail:subCategoryOf ex:CAT-KITCH .
+ex:SUB-PRINTB a retail:SubCategory     ; retail:name "Print Books"    ; retail:subCategoryOf ex:CAT-BOOKS .
 
-# ---- Members ----
-ex:alice a ex:Member ; ex:name "Alice" ; ex:email "alice@example.org" .
-ex:bob   a ex:Member ; ex:name "Bob" .
-ex:chen  a ex:Member ; ex:name "Chen" ;  ex:email "chen@example.org" .
+# ---- Products ----
+ex:PRD-0001 a retail:Product ; retail:name "Laptop Pro 14"        ; retail:sku "LAP-PRO-14" ; retail:price 1299.00 ; retail:brand ex:BRAND-ExampleTech  ; retail:inCategory ex:SUB-LAPTOP .
+ex:PRD-0002 a retail:Product ; retail:name "Wireless Earbuds X"   ; retail:sku "EAR-X"      ; retail:price 149.99  ; retail:brand ex:BRAND-ExampleTech  ; retail:inCategory ex:SUB-HEADPH .
+ex:PRD-0003 a retail:Product ; retail:name "USB-C Charger 65W"    ; retail:sku "CHG-65W"    ; retail:price 29.99   ; retail:brand ex:BRAND-ExampleTech  ; retail:inCategory ex:SUB-CHARGE .
+ex:PRD-0004 a retail:Product ; retail:name "Knowledge Graphs 101" ; retail:sku "BK-KG101"   ; retail:price 49.99   ; retail:brand ex:BRAND-ExamplePress ; retail:inCategory ex:SUB-PRINTB .
+ex:PRD-0005 a retail:Product ; retail:name "Chef Knife 8in"       ; retail:sku "KNF-8"      ; retail:price 79.50   ; retail:brand ex:BRAND-ExampleHome  ; retail:inCategory ex:SUB-KNIVES .
+ex:PRD-0006 a retail:Product ; retail:name "Mechanical Keyboard"  ; retail:sku "KBD-MECH"   ; retail:price 89.00   ; retail:brand ex:BRAND-ExampleTech  ; retail:inCategory ex:SUB-KEYBD .
 
-# ---- Loans ----
-ex:loan1 a ex:Loan ; ex:borrower ex:alice ; ex:item ex:dracula     ; ex:due "2026-11-20"^^xsd:date .
-ex:loan2 a ex:Loan ; ex:borrower ex:alice ; ex:item ex:emma        ; ex:due "2026-11-02"^^xsd:date .
-ex:loan3 a ex:Loan ; ex:borrower ex:chen  ; ex:item ex:timeMachine ; ex:due "2026-11-15"^^xsd:date .
+# ---- Customers, addresses, geography ----
+ex:C1 a retail:PremiumCustomer ; retail:name "Naidu Random1" ; retail:email "naidu@example.com" ; retail:memberSince "2024-03-15"^^xsd:date ; retail:hasAddress ex:A1 .
+ex:C2 a retail:Customer        ; retail:name "Bob Random2"   ; retail:email "bob@example.com"   ; retail:hasAddress ex:A2 .
+ex:C3 a retail:PremiumCustomer ; retail:name "Carol Random3" ; retail:email "carol@example.com" ; retail:memberSince "2025-11-01"^^xsd:date ; retail:hasAddress ex:A3 .
+ex:A1 a retail:Address ; retail:city "Sampleton" ; retail:postalCode "00001" ; retail:inState ex:US-CA .
+ex:A2 a retail:Address ; retail:city "Demoville" ; retail:postalCode "00002" ; retail:inState ex:US-TX .
+ex:A3 a retail:Address ; retail:city "Testburg"  ; retail:postalCode "00003" ; retail:inState ex:US-NY .
+ex:US-CA a retail:State ; retail:name "California" ; retail:inCountry ex:US .
+ex:US-TX a retail:State ; retail:name "Texas"      ; retail:inCountry ex:US .
+ex:US-NY a retail:State ; retail:name "New York"   ; retail:inCountry ex:US .
+ex:US    a retail:Country ; retail:name "United States of America" ; retail:salesRegion "AMER" .
+
+# ---- Channels ----
+ex:CH-WEB-US a retail:Channel ; retail:name "Example Web Store"  ; retail:channelType "Web" .
+ex:CH-APP-US a retail:Channel ; retail:name "Example Mobile App" ; retail:channelType "App" .
+
+# ---- Orders and order lines (revenue excludes CANCELLED and RETURNED) ----
+ex:ORD-0001 a retail:Order ; retail:placedBy ex:C1 ; retail:orderDate "2026-09-01"^^xsd:date ; retail:shipDate "2026-09-02"^^xsd:date ; retail:deliveryDate "2026-09-04"^^xsd:date ; retail:status "DELIVERED" ; retail:paymentMethod "CARD"      ; retail:viaChannel ex:CH-WEB-US ; retail:hasLine ex:ORD-0001-1 , ex:ORD-0001-2 .
+ex:ORD-0002 a retail:Order ; retail:placedBy ex:C2 ; retail:orderDate "2026-09-05"^^xsd:date ; retail:shipDate "2026-09-07"^^xsd:date ;                                            retail:status "SHIPPED"   ; retail:paymentMethod "PAYPAL"    ; retail:viaChannel ex:CH-APP-US ; retail:hasLine ex:ORD-0002-1 , ex:ORD-0002-2 .
+ex:ORD-0003 a retail:Order ; retail:placedBy ex:C1 ; retail:orderDate "2026-09-20"^^xsd:date ; retail:shipDate "2026-09-21"^^xsd:date ; retail:deliveryDate "2026-09-23"^^xsd:date ; retail:status "DELIVERED" ; retail:paymentMethod "CARD"      ; retail:viaChannel ex:CH-WEB-US ; retail:hasLine ex:ORD-0003-1 .
+ex:ORD-0004 a retail:Order ; retail:placedBy ex:C3 ; retail:orderDate "2026-10-02"^^xsd:date ;                                                                                    retail:status "PLACED"    ; retail:paymentMethod "GIFT_CARD" ; retail:viaChannel ex:CH-WEB-US ; retail:hasLine ex:ORD-0004-1 , ex:ORD-0004-2 .
+ex:ORD-0005 a retail:Order ; retail:placedBy ex:C3 ; retail:orderDate "2026-10-05"^^xsd:date ;                                                                                    retail:status "CANCELLED" ; retail:paymentMethod "CARD"      ; retail:viaChannel ex:CH-APP-US ; retail:hasLine ex:ORD-0005-1 .
+ex:ORD-0006 a retail:Order ; retail:placedBy ex:C2 ; retail:orderDate "2026-09-10"^^xsd:date ; retail:shipDate "2026-09-11"^^xsd:date ; retail:deliveryDate "2026-09-14"^^xsd:date ; retail:status "RETURNED"  ; retail:paymentMethod "PAYPAL"    ; retail:viaChannel ex:CH-WEB-US ; retail:hasLine ex:ORD-0006-1 .
+
+ex:ORD-0001-1 a retail:OrderLine ; retail:forProduct ex:PRD-0001 ; retail:quantity 1 ; retail:unitPrice 1299.00 .
+ex:ORD-0001-2 a retail:OrderLine ; retail:forProduct ex:PRD-0003 ; retail:quantity 2 ; retail:unitPrice 29.99 .
+ex:ORD-0002-1 a retail:OrderLine ; retail:forProduct ex:PRD-0004 ; retail:quantity 1 ; retail:unitPrice 49.99 .
+ex:ORD-0002-2 a retail:OrderLine ; retail:forProduct ex:PRD-0002 ; retail:quantity 1 ; retail:unitPrice 149.99 .
+ex:ORD-0003-1 a retail:OrderLine ; retail:forProduct ex:PRD-0002 ; retail:quantity 1 ; retail:unitPrice 139.99 .   # paid below list price
+ex:ORD-0004-1 a retail:OrderLine ; retail:forProduct ex:PRD-0005 ; retail:quantity 1 ; retail:unitPrice 79.50 .
+ex:ORD-0004-2 a retail:OrderLine ; retail:forProduct ex:PRD-0004 ; retail:quantity 2 ; retail:unitPrice 49.99 .
+ex:ORD-0005-1 a retail:OrderLine ; retail:forProduct ex:PRD-0004 ; retail:quantity 1 ; retail:unitPrice 49.99 .
+ex:ORD-0006-1 a retail:OrderLine ; retail:forProduct ex:PRD-0005 ; retail:quantity 1 ; retail:unitPrice 79.50 .
+
+# ---- Reviews ----
+ex:R1 a retail:Review ; retail:writtenBy ex:C1 ; retail:reviewOf ex:PRD-0001 ; retail:rating 5 ; retail:reviewText "Fast and light." .
+ex:R2 a retail:Review ; retail:writtenBy ex:C2 ; retail:reviewOf ex:PRD-0004 ; retail:rating 4 ; retail:reviewText "Great intro to graphs." .
+ex:R3 a retail:Review ; retail:writtenBy ex:C1 ; retail:reviewOf ex:PRD-0002 ; retail:rating 3 ; retail:reviewText "Good sound, weak battery." .
+ex:R4 a retail:Review ; retail:writtenBy ex:C3 ; retail:reviewOf ex:PRD-0004 ; retail:rating 5 ; retail:reviewText "Clear and practical." .
 ```
 
 ```sparql query
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?name
+SELECT ?name ?qty ?price
 WHERE {
-  ?b ex:author ?a .
-  ?a ex:name ?name .
+  ?order retail:placedBy/retail:name ?name ;
+         retail:status ?status ;
+         retail:hasLine ?line .
+  ?line  retail:quantity ?qty ; retail:unitPrice ?price .
 }
 ```
 
 ```sparql solution
-PREFIX ex: <http://example.org/library#>
+PREFIX retail: <https://example.org/retail/ontology#>
 
-SELECT ?name (COUNT(?b) AS ?books)
+SELECT ?name (SUM(?qty * ?price) AS ?revenue)
 WHERE {
-  ?b ex:author ?a .
-  ?a ex:name ?name .
+  ?order retail:placedBy/retail:name ?name ;
+         retail:status ?status ;
+         retail:hasLine ?line .
+  ?line  retail:quantity ?qty ; retail:unitPrice ?price .
+  FILTER(?status NOT IN ("CANCELLED", "RETURNED"))
 }
 GROUP BY ?name
-HAVING (COUNT(?b) > 1)
 ```
