@@ -1,0 +1,96 @@
+# Ontology Basics
+
+**Learn RDF, SPARQL, RDFS, OWL, SKOS and SHACL by doing, right in your browser.**
+
+▶ **Start learning:** https://rongali-naidu.github.io/ontology-basics/
+
+Each page explains one idea on the left. On the right is a live playground:
+
+```
+┌────────────────────────┬──────────────────────────────┐
+│                        │  Data (Turtle) │ Shapes      │  ← editable, with optional reasoning
+│   Lesson               ├──────────────────────────────┤
+│                        │  SPARQL query       [▶ Run]  │
+│   Exercise             ├──────────────────────────────┤
+│   [Check my answer]    │  Results / validation report │
+└────────────────────────┴──────────────────────────────┘
+```
+
+Everything runs client-side. There is no server and nothing to install.
+
+## Curriculum
+
+| # | Section | Lessons |
+|---|---|---|
+| 0 | Start | Welcome and how the playground works |
+| 1–2 | Foundations | Triples & IRIs · Turtle syntax |
+| 3–8 | SPARQL basics | SELECT · FILTER/OPTIONAL · ORDER/LIMIT/DISTINCT · aggregates · property paths/UNION/BIND · ASK/CONSTRUCT |
+| 9–11 | RDFS | Classes & subclasses · properties, domain & range · labels and reasoning with paths |
+| 12–16 | OWL | Open world · inverse/transitive/symmetric · sameAs & equivalence · functional/disjoint/inconsistency · restrictions |
+| 17–18 | SKOS | Concepts, schemes & labels · broader/narrower & mappings |
+| 19–22 | SHACL | First shape · value constraints · links between nodes · SHACL vs OWL |
+| 23 | Wrap-up | Capstone & next steps |
+
+## How it works
+
+| Piece | Library |
+|---|---|
+| Triple store + SPARQL 1.1 | [Oxigraph](https://github.com/oxigraph/oxigraph) compiled to WebAssembly |
+| Reasoning | SPARQL `INSERT` rules run to a fixpoint (RDFS + a teaching subset of OWL 2 RL); see `src/engine.js` |
+| SHACL validation | [shacl-engine](https://github.com/rdf-ext/shacl-engine) |
+| Editors | CodeMirror 6 |
+| Build | Vite, deployed by GitHub Actions to GitHub Pages |
+
+## Writing a lesson
+
+Lessons are Markdown files in [`lessons/`](lessons/), ordered by file name. Add a file and it appears in the course, with no code changes.
+
+````markdown
+---
+title: My lesson
+section: SPARQL basics
+reasoning: none          # none | rdfs | owl   (starting value of the Reasoning menu)
+check_reasoning: rdfs    # optional: reasoning used when checking the answer
+expect_focus: ex:a ex:b  # SHACL exercise: exactly these focus nodes must be reported
+tab: data                # which tab opens first on pages with shapes
+start: query             # on pages with shapes, run the query instead of validating on load
+---
+
+# Lesson text in Markdown …
+
+```sparql
+SELECT * WHERE { ?s ?p ?o }      # ← plain sparql blocks get a "Try this query" button
+```
+
+```turtle data
+… starting data …
+```
+
+```sparql query
+… starting query …
+```
+
+```sparql solution
+… exercise: the learner's results must equal this query's results …
+```
+````
+
+Other special blocks:
+
+- ` ```turtle shapes `: starting SHACL shapes (adds the Shapes tab)
+- ` ```sparql check `: an `ASK` that must be true on the learner's data
+- ` ```turtle solution-data ` / ` ```turtle solution-shapes `: loaded by **Show solution**
+- ` ```turtle-add `: a snippet with an **Add to data** button
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Build with `npm run build`; the static site is written to `dist/`.
+
+## License
+
+Apache License 2.0 (see `LICENSE`)

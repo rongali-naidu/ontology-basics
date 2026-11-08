@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ontology Basics</title>
+  <meta name="description" content="Learn RDF, SPARQL, RDFS, OWL, SKOS and SHACL hands-on, with a live SPARQL playground in your browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='8' cy='16' r='5' fill='%233b6fd8'/><circle cx='25' cy='8' r='4' fill='%23d8873b'/><circle cx='25' cy='24' r='4' fill='%2333a06f'/><path d='M12 14 21 9M12 18l9 5' stroke='%23888' stroke-width='2'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="tocBtn" aria-label="Lessons" title="All lessons">☰</button>
+    <a class="brand" href="#/">Ontology&nbsp;Basics</a>
+    <span class="crumb" id="crumb"></span>
+    <div class="spacer"></div>
+    <div class="progress" id="progress" title="Exercises completed"></div>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light/dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </header>
+
+  <nav class="toc" id="toc" aria-label="Lessons"></nav>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="layout">
+    <article class="lesson" id="lesson">
+      <div id="lessonBody" class="prose"></div>
+      <div class="exercise" id="exercise" hidden>
+        <div class="exercise-actions">
+          <button class="btn primary" id="checkBtn">Check my answer</button>
+          <button class="btn" id="solutionBtn">Show solution</button>
+          <span class="check-msg" id="checkMsg" role="status"></span>
+        </div>
+      </div>
+      <footer class="pager">
+        <a id="prevLink" class="btn">← Previous</a>
+        <span id="pageNum" class="faint"></span>
+        <a id="nextLink" class="btn">Next →</a>
+      </footer>
+    </article>
+
+    <section class="workbench" aria-label="Playground">
+      <div class="panel" id="dataPanel">
+        <div class="panel-head">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="data" role="tab">Data</button>
+            <button class="tab" data-tab="shapes" role="tab" id="shapesTab" hidden>Shapes</button>
+          </div>
+          <div class="spacer"></div>
+          <label class="reasoning" title="Apply inference rules to the data before querying">
+            Reasoning
+            <select id="reasoning">
+              <option value="none">Off</option>
+              <option value="rdfs">RDFS</option>
+              <option value="owl">RDFS + OWL RL</option>
+            </select>
+          </label>
+          <button class="link-btn" id="rulesBtn" title="See the inference rules">rules</button>
+        </div>
+        <div class="editor" id="dataEditor"></div>
+        <div class="editor" id="shapesEditor" hidden></div>
+        <div class="panel-foot" id="dataStatus"></div>
+      </div>
+
+      <div class="panel" id="queryPanel">
+        <div class="panel-head">
+          <span class="panel-title">SPARQL query</span>
+          <div class="spacer"></div>
+          <button class="btn small" id="resetBtn" title="Restore this lesson's starting data and query">Reset</button>
+          <button class="btn small" id="validateBtn" hidden>Validate ✓</button>
+          <button class="btn small primary" id="runBtn" title="Ctrl/⌘ + Enter">▶ Run</button>
+        </div>
+        <div class="editor" id="queryEditor"></div>
+      </div>
+
+      <div class="panel" id="resultsPanel">
+        <div class="panel-head">
+          <span class="panel-title" id="resultsTitle">Results</span>
+          <div class="spacer"></div>
+          <span class="faint" id="resultsMeta"></span>
+        </div>
+        <div class="results" id="results"><p class="faint pad">Run the query to see results.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="rulesDialog">
+    <div class="dialog-head"><strong>Inference rules</strong><button class="icon-btn" id="rulesClose" aria-label="Close">✕</button></div>
+    <div id="rulesBody" class="prose"></div>
+  </dialog>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
