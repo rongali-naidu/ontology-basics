@@ -18,8 +18,6 @@ This course teaches the core Semantic Web standards, one small step per page, us
 
 The course starts with **Ontology concepts**: what an ontology is, its building blocks (classes, properties, restrictions, individuals), how they compare with object-oriented programming and databases, and a translation table for the many words different tools use for the same ideas. Then it goes hands-on with each standard.
 
-The store comes from the retail example in [semantics-ontology-graphs](https://github.com/rongali-naidu/semantics-ontology-graphs/tree/main/examples/retail), with the same IRIs, ontology, taxonomies and data. Once you finish here, you can go straight to the full version.
-
 Everything runs **in your browser**. Nothing is sent to a server.
 
 ## How each page works

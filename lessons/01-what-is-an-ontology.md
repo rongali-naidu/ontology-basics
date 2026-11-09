@@ -5,13 +5,20 @@ section: Ontology concepts
 
 # What is an ontology?
 
-> An ontology is a **formal, explicit description of the concepts in a domain**.
-> (Noy & McGuinness, *[Ontology Development 101](https://protege.stanford.edu/publications/ontology_development/ontology101.pdf)*, after Gruber)
+## From philosophy…
+
+The word comes from Greek: *on, ontos* ("being, that which is") + *-logia* ("study"). In philosophy, **ontology** is the branch of metaphysics that studies the nature of being: *what exists*, and what kinds of things there are.
+
+## …to technology
+
+In the early 1990s, AI and knowledge-engineering researchers borrowed the word for something more practical:
+
+**An ontology is a formal, machine-readable specification of a shared conceptual model of a domain.**
 
 - **Domain**: the part of the world you care about. Here that's an online store.
-- **Concepts**: the kinds of things in it: customers, orders, products, brands.
-- **Explicit**: written down, not living in people's heads or scattered through application code.
-- **Formal**: in a precise language a machine can process, check and reason over.
+- **Conceptual model**: the kinds of things in it (customers, orders, products) and how they relate.
+- **Shared**: an agreement. The web shop, the warehouse and the analysts all mean the same thing by "order".
+- **Formal and machine-readable**: written down explicitly, in a precise language (RDFS/OWL) that software can process, check and reason over, rather than living in people's heads or scattered through application code.
 
 ## The four building blocks
 
