@@ -46,15 +46,15 @@ Run the query on the right. It labels every triple as TBox or ABox, depending on
 
 ## Where each standard fits
 
-| Job | Standard | Lesson |
-|---|---|---|
-| The data model: everything is a triple | **RDF** | Foundations |
-| A text format for writing triples | **Turtle** | Foundations |
-| Querying the graph | **SPARQL** | SPARQL basics |
-| Classes, hierarchies, domain and range | **RDFS** | RDFS |
-| Richer meaning: inverse, transitive, restrictions, equivalence | **OWL** | OWL |
-| Taxonomies, glossaries, labels | **SKOS** | SKOS |
-| Validating data against rules | **SHACL** | SHACL |
+| Job | Standard | Lesson | Reference |
+|---|---|---|---|
+| The data model: everything is a triple | **RDF** | [Foundations](#/07-triples) | [RDF 1.1 Primer](https://www.w3.org/TR/rdf11-primer/) |
+| A text format for writing triples | **Turtle** | [Foundations](#/08-turtle) | [Turtle spec](https://www.w3.org/TR/turtle/) |
+| Querying and updating the graph | **SPARQL** | [SPARQL basics](#/10-select) | [SPARQL 1.1 Query](https://www.w3.org/TR/sparql11-query/) · [Update](https://www.w3.org/TR/sparql11-update/) |
+| Classes, hierarchies, domain and range | **RDFS** | [RDFS](#/21-rdfs-classes) | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
+| Richer meaning: inverse, transitive, restrictions, equivalence | **OWL** | [OWL](#/24-owl-intro) | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
+| Taxonomies, glossaries, labels | **SKOS** | [SKOS](#/29-skos-concepts) | [SKOS Primer](https://www.w3.org/TR/skos-primer/) |
+| Validating data against rules | **SHACL** | [SHACL](#/31-shacl-first-shape) | [SHACL spec](https://www.w3.org/TR/shacl/) |
 
 ## Why build one?
 
