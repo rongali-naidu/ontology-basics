@@ -23,6 +23,16 @@ WHERE {
 }
 ```
 
+**Turtle and SPARQL write prefixes differently.** Mixing them up is the most common first error:
+
+| | Turtle (data) | SPARQL (queries) |
+|---|---|---|
+| syntax | `@prefix ex: <…> .` | `PREFIX ex: <…>` |
+| `@` | yes | no |
+| final dot | yes | no |
+
+(Turtle 1.1 also accepts the SPARQL style, `PREFIX ex: <…>`, so that form works in both.)
+
 Notice **`xsd:`** in the exercise below. You need it even though no data property is called `xsd:…`, because typed values like dates are written `"2026-09-15"^^xsd:date`.
 
 ## 2. You can skip prefixes and write full IRIs

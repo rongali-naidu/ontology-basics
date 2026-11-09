@@ -365,6 +365,7 @@ function run () {
     $('resultsMeta').textContent = `${meta} · ${Math.round(performance.now() - t0)} ms`
     $('results').innerHTML = html
   } catch (e) {
+    if (TURTLE_STYLE.test(q)) return showTurtlePrefixHelp(q, e)
     const missing = undeclaredPrefixes(q)
     const bare = missing.length ? [] : bareWords(q)
     if (missing.length) showPrefixHelp(missing, e)
@@ -450,6 +451,21 @@ function showBareWordHelp (words, q, e) {
   if (fixed) $('fixBare').onclick = () => { queryEd.value = fixed; run() }
 }
 
+// Turtle-style prefix lines in a query: `@prefix ex: <…> .` instead of `PREFIX ex: <…>`
+const TURTLE_STYLE = /^\s*(@prefix\s+[\w-]*:\s*<[^>]*>\s*\.?|PREFIX\s+[\w-]*:\s*<[^>]*>\s*\.)\s*$/im
+function showTurtlePrefixHelp (q, e) {
+  const fixed = q.replace(/^(\s*)@?prefix(\s+[\w-]*:\s*<[^>]*>)\s*\.?\s*$/gim, (m, sp, rest) => `${sp}PREFIX${rest}`)
+  $('resultsTitle').textContent = 'Error'
+  $('resultsMeta').textContent = ''
+  $('results').innerHTML = `<div class="error-box friendly">
+    <strong>Turtle prefix syntax in a SPARQL query</strong>
+    <p>Turtle (the Data panel) writes <code>@prefix ex: &lt;…&gt; .</code>. SPARQL writes <code>PREFIX ex: &lt;…&gt;</code>, with <strong>no <code>@</code></strong> and <strong>no final dot</strong>. Here is your query fixed:</p>
+    <pre>${esc(fixed)}</pre><button class="btn small primary" id="fixTurtlePrefix">Use this query</button>
+    <details><summary>Technical details</summary><pre>${esc(cleanError(e))}</pre></details>
+  </div>`
+  $('fixTurtlePrefix').onclick = () => { queryEd.value = fixed; run() }
+}
+
 function showPrefixHelp (missing, e) {
   const known = collectPrefixes(dataEd.value, shapesEd.value)
   const fixable = missing.filter(p => known[p])
@@ -486,6 +502,7 @@ function runUpdate (q) {
         }</tbody></table>`
       : '<p class="faint pad">The update ran but changed nothing. (Did the WHERE pattern match anything?)</p>')
   } catch (e) {
+    if (TURTLE_STYLE.test(q)) return showTurtlePrefixHelp(q, e)
     const missing = undeclaredPrefixes(q)
     if (missing.length) showPrefixHelp(missing, e)
     else showError('Update error', e)
