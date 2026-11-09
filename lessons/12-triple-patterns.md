@@ -69,6 +69,59 @@ PREFIX ex:     <https://example.org/retail/data/>
 ASK { ex:ORD-0001 retail:placedBy ex:C1 }
 ```
 
+## Returning whole triples
+
+With the predicate fixed, `?p` has nothing to bind to. `SELECT ?s ?p ?o WHERE { ?s retail:name ?o }` leaves the `?p` column empty. There are three ways to get **complete triples** that match a condition.
+
+**Keep the predicate as a variable and restrict it.** Use `VALUES` for one or more allowed predicates:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?s ?p ?o
+WHERE {
+  VALUES ?p { retail:name retail:price }
+  ?s ?p ?o .
+}
+```
+
+**Fix the predicate and put it back into the result with `BIND`:**
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?s ?p ?o
+WHERE {
+  ?s retail:name ?o .
+  BIND(retail:name AS ?p)
+}
+```
+
+**Ask for triples, not rows, with `CONSTRUCT`.** The result *is* a set of triples:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+CONSTRUCT { ?s retail:name ?o }
+WHERE     { ?s retail:name ?o }
+```
+
+**Every triple about the things that match a condition:** find the subjects first, then take all their triples. Here that's everything about products under 100:
+
+```sparql
+PREFIX retail: <https://example.org/retail/ontology#>
+
+SELECT ?s ?p ?o
+WHERE {
+  ?s a retail:Product ; retail:price ?price .
+  FILTER(?price < 100)
+  ?s ?p ?o .
+}
+ORDER BY ?s
+```
+
+The condition can test any position. `FILTER(isLiteral(?o))`, `FILTER(?p != rdf:type)` and `FILTER(STRSTARTS(STR(?p), "https://example.org/retail/"))` are all common.
+
 ## Exploring an unknown graph
 
 A **variable predicate** is how you discover what's in a graph you've never seen. In SQL this would mean reading the database catalog; in SPARQL the schema is just more data.

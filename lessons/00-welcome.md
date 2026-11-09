@@ -45,10 +45,6 @@ WHERE { ?s ?p ?o }
 
 Now change the price `1299.00` to something else and run again. That's the whole loop: **edit → run → observe**.
 
-## Under the hood
-
-The playground runs **[Oxigraph](https://github.com/oxigraph/oxigraph)**, an open-source RDF database written in Rust. It stores triples and quads, answers SPARQL 1.1 queries and updates, and reads and writes Turtle, TriG, N-Triples, N-Quads, JSON-LD and RDF/XML. It also runs as a server or embedded in Python and Rust apps. Here it's compiled to WebAssembly, so the whole database lives inside this page. SHACL validation uses [shacl-engine](https://github.com/rdf-ext/shacl-engine), and the reasoner is a set of SPARQL rules you can read under **rules**.
-
 Use **☰** (top-left) to jump to any lesson, or **Next →** below to start.
 
 ```turtle data
