@@ -49,6 +49,7 @@
           <div class="tabs" role="tablist">
             <button class="tab active" data-tab="data" role="tab">Data</button>
             <button class="tab" data-tab="shapes" role="tab" id="shapesTab" hidden>Shapes</button>
+            <button class="tab" data-tab="graph" role="tab" title="See the data as nodes and edges">Graph</button>
           </div>
           <div class="spacer"></div>
           <label class="reasoning" title="Serialisation format of the data. Changing it converts the data.">
@@ -74,6 +75,20 @@
         </div>
         <div class="editor" id="dataEditor"></div>
         <div class="editor" id="shapesEditor" hidden></div>
+        <div class="graph-pane" id="graphPane" hidden>
+          <div class="graph-tools">
+            <label><input type="checkbox" id="gLiterals"> values</label>
+            <label><input type="checkbox" id="gTypes" checked> types</label>
+            <label><input type="checkbox" id="gInferred" checked> inferred</label>
+            <button class="link-btn" id="gFit" title="Fit the whole graph in view">fit</button>
+            <button class="link-btn" id="gExpand" title="Use the whole playground area for the graph">⤢ expand</button>
+            <span class="graph-legend">
+              <span class="lg class">class</span><span class="lg ind">individual</span><span class="lg lit">value</span><span class="lg inf">inferred</span>
+            </span>
+          </div>
+          <div class="graph-canvas" id="graphCanvas"></div>
+          <div class="graph-msg faint" id="graphMsg" hidden></div>
+        </div>
         <div class="panel-foot" id="dataStatus"></div>
       </div>
 

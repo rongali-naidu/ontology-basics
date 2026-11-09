@@ -24,7 +24,7 @@ Everything runs **in your browser**. Nothing is sent to a server.
 
 The **left side** (this text) explains one idea. The **right side** is your playground:
 
-1. **Data** (top): an RDF graph written in Turtle. Edit it freely! Some lessons add a **Shapes** tab for SHACL.
+1. **Data** (top): an RDF graph written in Turtle. Edit it freely! The **Graph** tab next to it draws the same data as nodes and edges (click a node to see its triples), and some lessons add a **Shapes** tab for SHACL.
 2. **SPARQL query** (middle): press **▶ Run** or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd>.
 3. **Results** (bottom): a table, a true/false answer, new triples, or a validation report.
 

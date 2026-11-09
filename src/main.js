@@ -31,6 +31,7 @@ $('themeBtn').onclick = () => {
   document.documentElement.dataset.theme = next
   store.set('ob:theme', next)
   syncThemeSwitch()
+  if (typeof scheduleGraph === 'function') scheduleGraph()
 }
 
 // ---------- prefixes & term display ----------
@@ -100,6 +101,7 @@ let saveTimer = null
 const onChange = () => {
   clearTimeout(saveTimer)
   saveTimer = setTimeout(saveDraft, 400)
+  scheduleGraph()
 }
 const dataEd = createEditor($('dataEditor'), 'turtle', { onRun: () => run(), onChange })
 const shapesEd = createEditor($('shapesEditor'), 'turtle', { onRun: () => validate(), onChange })
@@ -108,11 +110,81 @@ const queryEd = createEditor($('queryEditor'), 'sparql', { onRun: () => run(), o
 for (const tab of document.querySelectorAll('.tab')) {
   tab.onclick = () => showTab(tab.dataset.tab)
 }
+let activeTab = 'data'
 function showTab (name) {
+  activeTab = name
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.tab === name)
   $('dataEditor').hidden = name !== 'data'
   $('shapesEditor').hidden = name !== 'shapes'
+  $('graphPane').hidden = name !== 'graph'
+  document.querySelector('.workbench').classList.toggle('graph-tab', name === 'graph')
+  if (name !== 'graph' && document.body.classList.contains('graph-expanded')) setGraphExpanded(false)
+  if (name === 'graph') drawGraph()
 }
+
+// ---------- graph view ----------
+let cyInstance = null
+let graphTimer = null
+function scheduleGraph () {
+  if (activeTab !== 'graph') return
+  clearTimeout(graphTimer)
+  graphTimer = setTimeout(drawGraph, 500)
+}
+let graphModule = null   // Cytoscape is loaded only when the Graph tab is first opened
+async function drawGraph () {
+  if (activeTab !== 'graph') return
+  if (!graphModule) {
+    $('graphMsg').hidden = false; $('graphMsg').textContent = 'Loading the graph view…'
+    graphModule = await import('./graph.js')
+  }
+  const { renderGraph } = graphModule
+  cyInstance?.destroy(); cyInstance = null
+  const msg = $('graphMsg')
+  msg.hidden = true
+  let b
+  try { b = build() } catch (e) {
+    msg.hidden = false; msg.textContent = 'The data has a syntax error, so there is nothing to draw yet.'
+    return
+  }
+  const inferredKeys = new Set(b.inferred.map(q => `${q.subject.toString()} ${q.predicate.toString()} ${q.object.toString()} ${q.graph.toString()}`))
+  const res = renderGraph($('graphCanvas'), b.store.match(), inferredKeys, {
+    showLiterals: $('gLiterals').checked,
+    showTypes: $('gTypes').checked,
+    showInferred: $('gInferred').checked,
+    label: t => termInfo(t).text,
+    onSelect: term => describeNode(b, term)
+  })
+  if (res.tooBig) {
+    msg.hidden = false
+    msg.textContent = `This graph has ${res.tooBig} nodes and edges, which is too many to draw clearly. Untick "values" or "types", or query a smaller part.`
+    return
+  }
+  cyInstance = res.cy
+  if (!res.nodes) { msg.hidden = false; msg.textContent = 'Nothing to draw: the data is empty (or everything is hidden by the toggles).' }
+}
+function describeNode (b, term) {
+  if (term.termType === 'Literal') return
+  const all = b.store.match()
+  const out = all.filter(q => q.subject.equals(term))
+  const inc = all.filter(q => q.object.equals(term))
+  $('resultsTitle').textContent = `Node · ${termInfo(term).text}`
+  $('resultsMeta').textContent = `${out.length} outgoing · ${inc.length} incoming`
+  const rows = [...out.map(q => ['→', q.predicate, q.object]), ...inc.map(q => ['←', q.predicate, q.subject])]
+  $('results').innerHTML = rows.length
+    ? `<table><thead><tr><th>dir</th><th>predicate</th><th>other end</th></tr></thead><tbody>${
+        rows.map(([d, p, o]) => `<tr><td>${d}</td><td>${termHtml(p)}</td><td>${termHtml(o)}</td></tr>`).join('')
+      }</tbody></table>`
+    : '<p class="faint pad">No triples.</p>'
+}
+for (const id of ['gLiterals', 'gTypes', 'gInferred']) $(id).onchange = () => drawGraph()
+$('gFit').onclick = () => cyInstance?.fit(undefined, 24)
+function setGraphExpanded (on) {
+  document.body.classList.toggle('graph-expanded', on)
+  $('gExpand').textContent = on ? '⤡ close' : '⤢ expand'
+  requestAnimationFrame(() => { cyInstance?.resize(); cyInstance?.fit(undefined, 24) })
+}
+$('gExpand').onclick = () => setGraphExpanded(!document.body.classList.contains('graph-expanded'))
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('graph-expanded')) setGraphExpanded(false) })
 
 // ---------- lesson navigation ----------
 let current = null
@@ -621,7 +693,7 @@ $('resetBtn').onclick = () => {
 }
 $('runBtn').onclick = () => run()
 $('validateBtn').onclick = () => validate()
-$('reasoning').onchange = () => { if (queryEd.value.trim()) runIfQuery(); else updateDataStatus() }
+$('reasoning').onchange = () => { if (queryEd.value.trim()) runIfQuery(); else updateDataStatus(); scheduleGraph() }
 
 // ---------- rules dialog ----------
 $('rulesBtn').onclick = () => {
